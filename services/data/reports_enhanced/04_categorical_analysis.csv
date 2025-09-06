@@ -1,0 +1,11 @@
+column,unique_categories,top_category,top_frequency,top_percentage
+gender,3,Female,58552,58.55
+location,55,Hawaii,2038,2.04
+smoking_history,6,No Info,35816,35.82
+bmi_category,4,Overweight,45751,45.75
+age_group,4,Adult,29653,29.65
+physical_activity,3,moderate,40110,40.11
+diet_pattern,3,balanced,50051,50.05
+alcohol_intake,3,none,50150,50.15
+urban_rural,2,urban,70010,70.01
+region_income,3,medium,50029,50.03
