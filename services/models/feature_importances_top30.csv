@@ -1,0 +1,30 @@
+,0
+hbA1c_level,0.3309684545948032
+blood_glucose_level,0.25929243675512975
+age,0.10786254618941706
+bmi,0.09382677759009884
+age_diabetes_risk_low_risk,0.04981649632591755
+age_group_Senior,0.029508376234018828
+bmi_category_Obese,0.01595826478345761
+age_group_Adult,0.01243830184156215
+age_diabetes_risk_very_high_risk,0.011244879102579288
+smoking_history_No Info,0.011037942742349155
+bmi_risk_level_obese_2,0.009986379286532055
+age_group_Child,0.008688618528383011
+age_diabetes_risk_high_risk,0.007118225104711277
+age_group_Middle-aged,0.005742084763570294
+smoking_history_never,0.0053125186841137175
+gender_Male,0.0046892680550808365
+gender_Female,0.004621172251617817
+smoking_history_not current,0.004129797787248199
+smoking_history_current,0.003973790958502972
+smoking_history_former,0.003965492508444528
+age_diabetes_risk_moderate_risk,0.003502576226626597
+smoking_history_ever,0.0033321091364809487
+bmi_risk_level_normal,0.002728865531945175
+bmi_category_Normal,0.002090788930737695
+bmi_category_Overweight,0.0019487999494798211
+bmi_risk_level_overweight,0.0018697031003593052
+bmi_risk_level_obese_1,0.0017576075088622243
+bmi_risk_level_underweight,0.001465270213595193
+bmi_category_Underweight,0.0011224553143748517
