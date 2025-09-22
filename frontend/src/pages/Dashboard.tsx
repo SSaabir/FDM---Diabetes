@@ -43,6 +43,14 @@ export const Dashboard: React.FC = () => {
       href: '/faq',
       color: 'bg-success-10 text-success',
       buttonText: 'Browse FAQ'
+    },
+    {
+      icon: Shield,
+      title: 'Admin Dashboard',
+      description: 'Manage ML models, datasets, and monitor system performance',
+      href: '/admin',
+      color: 'bg-warning-10 text-warning',
+      buttonText: 'Access Admin'
     }
   ];
 
