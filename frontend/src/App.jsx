@@ -11,8 +11,12 @@ import SignUp from "./pages/SignUp";
 import FAQ from "./pages/FAQ";
 import NotFound from "./pages/NotFound";
 import AdminDashboard from "./admin/pages/AdminDashboard";
-import AboutUs from './AboutUs.jsx';
-import Home from './Home.jsx';
+import AboutUs from './pages/AboutUs.jsx';
+import Home from './pages/Home.jsx';
+import Chat from './pages/Chat.jsx';
+import Prediction from './pages/Prediction.jsx';
+import Header from './components/Header.jsx';
+import Footer from './components/Footer.jsx';
 
 const queryClient = new QueryClient();
 
@@ -23,53 +27,49 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <Header />
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<SignUp />} />
-            <Route 
-              path="/" 
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/faq" 
-              element={
-                <ProtectedRoute>
-                  <FAQ />
-                </ProtectedRoute>
-              } 
-            />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/faq" element={<FAQ />} />
             <Route 
               path="/assessment" 
               element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
+
+                  <Prediction />
+
+              } 
+            />
+            <Route 
+              path="/prediction" 
+              element={
+
+                  <Prediction />
+
               } 
             />
             <Route 
               path="/chat" 
               element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
+
+                  <Chat />
+
               } 
             />
             <Route 
               path="/admin" 
               element={
-                <ProtectedRoute>
+
                   <AdminDashboard />
-                </ProtectedRoute>
+
               } 
             />
-                    <Route path="/aboutus" element={<AboutUs />} />
-        <Route path="/" element={<Home />} />
+            <Route path="/aboutus" element={<AboutUs />} />
+            <Route path="/" element={<Home />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <Footer />
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
