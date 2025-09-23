@@ -11,6 +11,8 @@ import SignUp from "./pages/SignUp";
 import FAQ from "./pages/FAQ";
 import NotFound from "./pages/NotFound";
 import AdminDashboard from "./admin/pages/AdminDashboard";
+import AboutUs from './AboutUs.jsx';
+import Home from './Home.jsx';
 
 const queryClient = new QueryClient();
 
@@ -64,7 +66,8 @@ const App = () => (
                 </ProtectedRoute>
               } 
             />
-            
+                    <Route path="/aboutus" element={<AboutUs />} />
+        <Route path="/" element={<Home />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
@@ -74,4 +77,3 @@ const App = () => (
 );
 
 export default App;
-
