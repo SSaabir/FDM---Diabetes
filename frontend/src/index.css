@@ -38,7 +38,21 @@
   --destructive-foreground: 0 0% 100%;
   --border: 60 20% 85%;
   --input: 0 0% 100%;
-  --ring: 212 55% 35%;
+  --ring: 212 55% 45%;
+  
+  /* Medical theme gradients */
+  --gradient-primary: linear-gradient(135deg, hsl(212 55% 45%), hsl(204 46% 30%));
+  --gradient-accent: linear-gradient(135deg, hsl(43 68% 59%), hsl(43 68% 69%));
+  --gradient-soft: linear-gradient(180deg, hsl(60 37% 95%), hsl(60 37% 92%));
+  
+  /* Medical shadows */
+  --shadow-medical: 0 4px 20px -4px hsl(212 55% 35% / 0.15);
+  --shadow-glow: 0 0 30px hsl(43 68% 59% / 0.2);
+  
+  /* Smooth transitions */
+  --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-bounce: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  
   --radius: 0.75rem;
   
   /* Sidebar variables */
@@ -76,6 +90,11 @@
   --border: 204 46% 18%;
   --input: 204 46% 15%;
   --ring: 212 55% 45%;
+  
+  --gradient-primary: linear-gradient(135deg, hsl(212 55% 45%), hsl(204 46% 25%));
+  --gradient-accent: linear-gradient(135deg, hsl(43 68% 65%), hsl(43 68% 75%));
+  --gradient-soft: linear-gradient(180deg, hsl(204 46% 12%), hsl(204 46% 8%));
+  
   --sidebar-background: 210 40% 6%;
   --sidebar-foreground: 0 0% 95%;
   --sidebar-primary: 214 84% 66%;
@@ -247,5 +266,94 @@
   
   .group:hover .arrow-slide {
     transform: translateX(4px) !important;
+  }
+  
+  /* Additional medical themed components */
+  .medical-card {
+    background: hsl(var(--card));
+    border-radius: 0.5rem;
+    border: 1px solid hsl(var(--border));
+    box-shadow: var(--shadow-medical);
+    transition: var(--transition-smooth);
+  }
+  
+  .medical-card:hover {
+    box-shadow: var(--shadow-glow);
+    transform: translateY(-1px);
+  }
+  
+  .pulse-gentle {
+    animation: pulse 3s cubic-bezier(0.4,0,0.6,1) infinite;
+  }
+  
+  .slide-in {
+    animation: slideIn 0.5s ease-out;
+  }
+  
+  .bounce-in {
+    animation: bounceIn 0.6s cubic-bezier(0.175,0.885,0.32,1.275);
+  }
+  
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+  
+  .animate-heartbeat {
+    animation: heartbeat 1.5s ease-in-out infinite;
+  }
+  
+  .gradient-medical {
+    background: var(--gradient-primary);
+  }
+  
+  .gradient-accent {
+    background: var(--gradient-accent);
+  }
+  
+  .gradient-soft {
+    background: var(--gradient-soft);
+  }
+}
+
+@keyframes slideIn {
+  0% {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes heartbeat {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
   }
 }
