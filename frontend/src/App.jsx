@@ -17,6 +17,8 @@ import Chat from './pages/Chat.jsx';
 import Prediction from './pages/Prediction.jsx';
 import Header from './components/Header.jsx';
 import Footer from './components/Footer.jsx';
+import TermsAndConditions from './pages/TermsAndConditions.jsx';
+import ContactUs from "./pages/ContactUs.jsx";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +31,8 @@ const App = () => (
         <AuthProvider>
           <Header />
           <Routes>
+            <Route path="/contact" element={<ContactUs />} />
+            <Route path="/terms" element={<TermsAndConditions />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<SignUp />} />
             <Route path="/dashboard" element={<Dashboard />} />
