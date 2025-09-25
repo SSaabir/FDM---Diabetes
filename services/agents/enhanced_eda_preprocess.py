@@ -64,10 +64,42 @@ def comprehensive_eda(df: pd.DataFrame, reports_dir: str, target_col: str = None
     dtypes_df['null_percentage'] = dtypes_df['null_count'].apply(lambda x: round(x / len(df) * 100, 2))
     dtypes_df.to_csv(os.path.join(reports_dir, "01_enhanced_dtypes.csv"), index=False)
     
-    # 3. Missing values analysis
+    # 3. Enhanced missing values analysis with gender-specific context
     miss_analysis = df.isnull().sum().reset_index()
     miss_analysis.columns = ['column', 'missing_count']
     miss_analysis['missing_pct'] = miss_analysis['missing_count'].apply(lambda x: round(x / len(df) * 100, 2))
+    
+    # Add context for gender-specific features
+    miss_analysis['missing_type'] = 'standard'
+    gender_specific_features = ['gestational_history', 'gestational_diabetes', 'pregnancy_history']
+    
+    for feature in gender_specific_features:
+        if feature in miss_analysis['column'].values:
+            mask = miss_analysis['column'] == feature
+            miss_analysis.loc[mask, 'missing_type'] = 'gender_specific'
+            
+            # If gender column exists, calculate male vs female missing rates
+            if 'gender' in df.columns or 'sex' in df.columns:
+                gender_col = 'gender' if 'gender' in df.columns else 'sex'
+                
+                # Calculate missing rates by gender
+                gender_stats = []
+                for gender_val in df[gender_col].unique():
+                    if pd.notna(gender_val):
+                        gender_subset = df[df[gender_col] == gender_val]
+                        gender_missing = gender_subset[feature].isnull().sum()
+                        gender_total = len(gender_subset)
+                        gender_pct = round(gender_missing / gender_total * 100, 2) if gender_total > 0 else 0
+                        gender_stats.append(f"{gender_val}: {gender_missing}/{gender_total} ({gender_pct}%)")
+                
+                # Add gender breakdown as a note
+                miss_analysis.loc[mask, 'gender_breakdown'] = "; ".join(gender_stats)
+    
+    # Add gender_breakdown column for non-gender-specific features
+    if 'gender_breakdown' not in miss_analysis.columns:
+        miss_analysis['gender_breakdown'] = ''
+    miss_analysis['gender_breakdown'] = miss_analysis['gender_breakdown'].fillna('')
+    
     miss_analysis = miss_analysis.sort_values('missing_pct', ascending=False)
     miss_analysis.to_csv(os.path.join(reports_dir, "02_enhanced_missing_values.csv"), index=False)
     
@@ -333,14 +365,39 @@ def enhanced_imputation(df, numeric_cols, categorical_cols, target_col=None):
         missing_count = df_imputed[col].isnull().sum()
         
         if missing_count > 0:
-            # Use mode or 'Unknown' if no mode exists
-            mode_val = df_imputed[col].mode()
-            if len(mode_val) > 0:
-                df_imputed[col] = df_imputed[col].fillna(mode_val[0])
-                imputation_method = 'mode'
+            # Special handling for gender-related features like gestational_history
+            if col.lower() in ['gestational_history', 'gestational_diabetes', 'pregnancy_history']:
+                # For gender-specific features, use gender-aware imputation
+                if 'gender' in df_imputed.columns or 'sex' in df_imputed.columns:
+                    gender_col = 'gender' if 'gender' in df_imputed.columns else 'sex'
+                    # For males, fill with 'Not Applicable' or 'NA'
+                    # For females, use mode within female group
+                    for gender_val in df_imputed[gender_col].unique():
+                        if pd.notna(gender_val):
+                            gender_mask = df_imputed[gender_col] == gender_val
+                            if gender_val.lower() in ['male', 'm', 'man']:
+                                df_imputed.loc[gender_mask, col] = df_imputed.loc[gender_mask, col].fillna('Not Applicable')
+                            else:  # female or other
+                                female_mode = df_imputed.loc[gender_mask, col].mode()
+                                if len(female_mode) > 0:
+                                    df_imputed.loc[gender_mask, col] = df_imputed.loc[gender_mask, col].fillna(female_mode[0])
+                                else:
+                                    df_imputed.loc[gender_mask, col] = df_imputed.loc[gender_mask, col].fillna('No')
+                    imputation_method = 'gender_aware'
+                else:
+                    # If no gender column, assume mixed population and use conservative approach
+                    df_imputed[col] = df_imputed[col].fillna('Not Applicable')
+                    imputation_method = 'not_applicable'
             else:
-                df_imputed[col] = df_imputed[col].fillna('Unknown')
-                imputation_method = 'unknown'
+                # Regular categorical imputation for non-gender-specific features
+                # Use mode or 'Unknown' if no mode exists
+                mode_val = df_imputed[col].mode()
+                if len(mode_val) > 0:
+                    df_imputed[col] = df_imputed[col].fillna(mode_val[0])
+                    imputation_method = 'mode'
+                else:
+                    df_imputed[col] = df_imputed[col].fillna('Unknown')
+                    imputation_method = 'unknown'
             
             imputation_info[col] = {
                 'missing_count': missing_count,
@@ -572,12 +629,6 @@ def enhanced_preprocessing(df: pd.DataFrame, outdir: str, target_col: str = None
         print(f"     Scaling {len(final_numeric_cols)} numeric features...")
         scaler = StandardScaler()
         df_ml[final_numeric_cols] = scaler.fit_transform(df_ml[final_numeric_cols])
-        
-        # Save scaler for later use
-        import joblib
-        scaler_path = os.path.join(outdir, "feature_scaler.pkl")
-        joblib.dump(scaler, scaler_path)
-        print(f"     Scaler saved to: {scaler_path}")
     
     # 10. Feature selection (optional - select top K features for numeric columns only)
     if target_col and target_col in df_ml.columns and len(df_ml.columns) > 50:
