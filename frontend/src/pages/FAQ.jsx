@@ -155,7 +155,7 @@ export const FAQ = () => {
                       <Icon className="h-5 w-5" />
                     </div>
                     <span>{category.title}</span>
-                    <Badge variant="secondary">
+                    <Badge className="bg-slate-100 text-slate-700 border-slate-200">
                       {category.questions.length} questions
                     </Badge>
                   </CardTitle>

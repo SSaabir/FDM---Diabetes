@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import React, { useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-const AuthContext = createContext(undefined);
+import AuthContext from './AuthConstants';
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -22,7 +22,7 @@ export const AuthProvider = ({ children }) => {
     if (storedUser) {
       try {
         setUser(JSON.parse(storedUser));
-      } catch (error) {
+      } catch {
         localStorage.removeItem('diabetesPredict_user');
       }
     }

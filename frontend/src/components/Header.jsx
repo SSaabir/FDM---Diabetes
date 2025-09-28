@@ -1,9 +1,11 @@
 import { Button } from "./ui/button.jsx";
 import { Badge } from "./ui/badge.jsx";
-import { Stethoscope, Sparkles, User } from "lucide-react";
+import { Stethoscope, Sparkles, User, LogOut } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Header = () => {
+  const { isAuthenticated, logout, user } = useAuth();
   return (
     <header className="border-b bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
       <div className="container mx-auto px-4 py-4">
@@ -30,10 +32,28 @@ const Header = () => {
             </Badge>
           </div>
 
-          <Button className="gradient-medical">
-            <User className="h-4 w-4 mr-2" />
-            Login
-          </Button>
+          {isAuthenticated ? (
+            <div className="flex items-center space-x-4">
+              <span className="text-sm text-muted-foreground">
+                Welcome, {user?.name || user?.email}
+              </span>
+              <Button 
+                variant="outline" 
+                onClick={logout}
+                className="text-foreground hover:text-primary"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </Button>
+            </div>
+          ) : (
+            <Link to="/login">
+              <Button className="gradient-medical">
+                <User className="h-4 w-4 mr-2" />
+                Login
+              </Button>
+            </Link>
+          )}
         </nav>
       </div>
     </header>
