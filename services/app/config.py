@@ -5,8 +5,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Settings:
-    # Database
-    database_url: str = os.getenv("database_url", "sqlite:///./diabetes.db")
+    # Database - PostgreSQL required
+    database_url: str = os.getenv("database_url")
 
     # JWT
     secret_key: str = os.getenv("secret_key", "your-super-secret-key-change-this-in-production-12345678901234567890")
