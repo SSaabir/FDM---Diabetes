@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import * as Yup from "yup";
 
 export default function ContactUs() {
   const [formData, setFormData] = useState({
@@ -12,27 +13,35 @@ export default function ContactUs() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  const validateForm = () => {
-    let newErrors = {};
-    if (!formData.firstName.trim()) newErrors.firstName = "Please enter your first name";
-    if (!formData.lastName.trim()) newErrors.lastName = "Please enter your last name";
-    if (!formData.email.trim()) {
-      newErrors.email = "Please enter your email";
-    } else {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(formData.email)) {
-        newErrors.email = "Please enter a valid email address";
-      }
+  // Yup schema
+  const contactSchema = Yup.object().shape({
+    firstName: Yup.string().required("Please enter your first name"),
+    lastName: Yup.string().required("Please enter your last name"),
+    email: Yup.string()
+      .email("Please enter a valid email address")
+      .required("Please enter your email"),
+    subject: Yup.string().required("Please select a subject"),
+    message: Yup.string().required("Please enter your message"),
+  });
+
+  const validateForm = async () => {
+    try {
+      await contactSchema.validate(formData, { abortEarly: false });
+      setErrors({});
+      return true;
+    } catch (err) {
+      const newErrors = {};
+      err.inner.forEach((e) => {
+        newErrors[e.path] = e.message;
+      });
+      setErrors(newErrors);
+      return false;
     }
-    if (!formData.subject.trim()) newErrors.subject = "Please select a subject";
-    if (!formData.message.trim()) newErrors.message = "Please enter your message";
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    if (!(await validateForm())) return;
 
     setLoading(true);
     setTimeout(() => {
@@ -72,13 +81,19 @@ export default function ContactUs() {
                 <input
                   type="text"
                   value={formData.firstName}
-                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, firstName: e.target.value })
+                  }
                   className={`w-full p-4 rounded-lg border-2 ${
-                    errors.firstName ? "border-red-500 bg-red-50" : "border-[#27548A]/20 bg-[#F3F3E0]"
+                    errors.firstName
+                      ? "border-red-500 bg-red-50"
+                      : "border-[#27548A]/20 bg-[#F3F3E0]"
                   } focus:outline-none focus:border-[#DDA853] focus:bg-white`}
                   placeholder="Your first name"
                 />
-                {errors.firstName && <p className="text-red-600 text-sm mt-1">{errors.firstName}</p>}
+                {errors.firstName && (
+                  <p className="text-red-600 text-sm mt-1">{errors.firstName}</p>
+                )}
               </div>
               <div className="mb-5">
                 <label className="block text-[#27548A] font-semibold mb-2">
@@ -87,13 +102,19 @@ export default function ContactUs() {
                 <input
                   type="text"
                   value={formData.lastName}
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, lastName: e.target.value })
+                  }
                   className={`w-full p-4 rounded-lg border-2 ${
-                    errors.lastName ? "border-red-500 bg-red-50" : "border-[#27548A]/20 bg-[#F3F3E0]"
+                    errors.lastName
+                      ? "border-red-500 bg-red-50"
+                      : "border-[#27548A]/20 bg-[#F3F3E0]"
                   } focus:outline-none focus:border-[#DDA853] focus:bg-white`}
                   placeholder="Your last name"
                 />
-                {errors.lastName && <p className="text-red-600 text-sm mt-1">{errors.lastName}</p>}
+                {errors.lastName && (
+                  <p className="text-red-600 text-sm mt-1">{errors.lastName}</p>
+                )}
               </div>
             </div>
 
@@ -105,13 +126,19 @@ export default function ContactUs() {
               <input
                 type="email"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, email: e.target.value })
+                }
                 className={`w-full p-4 rounded-lg border-2 ${
-                  errors.email ? "border-red-500 bg-red-50" : "border-[#27548A]/20 bg-[#F3F3E0]"
+                  errors.email
+                    ? "border-red-500 bg-red-50"
+                    : "border-[#27548A]/20 bg-[#F3F3E0]"
                 } focus:outline-none focus:border-[#DDA853] focus:bg-white`}
                 placeholder="your.email@example.com"
               />
-              {errors.email && <p className="text-red-600 text-sm mt-1">{errors.email}</p>}
+              {errors.email && (
+                <p className="text-red-600 text-sm mt-1">{errors.email}</p>
+              )}
             </div>
 
             {/* Subject */}
@@ -121,9 +148,13 @@ export default function ContactUs() {
               </label>
               <select
                 value={formData.subject}
-                onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, subject: e.target.value })
+                }
                 className={`w-full p-4 rounded-lg border-2 ${
-                  errors.subject ? "border-red-500 bg-red-50" : "border-[#27548A]/20 bg-[#F3F3E0]"
+                  errors.subject
+                    ? "border-red-500 bg-red-50"
+                    : "border-[#27548A]/20 bg-[#F3F3E0]"
                 } focus:outline-none focus:border-[#DDA853] focus:bg-white`}
               >
                 <option value="">Select a topic</option>
@@ -134,7 +165,9 @@ export default function ContactUs() {
                 <option value="general">General Inquiry</option>
                 <option value="partnership">Partnership</option>
               </select>
-              {errors.subject && <p className="text-red-600 text-sm mt-1">{errors.subject}</p>}
+              {errors.subject && (
+                <p className="text-red-600 text-sm mt-1">{errors.subject}</p>
+              )}
             </div>
 
             {/* Message */}
@@ -144,13 +177,19 @@ export default function ContactUs() {
               </label>
               <textarea
                 value={formData.message}
-                onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, message: e.target.value })
+                }
                 className={`w-full p-4 rounded-lg border-2 min-h-[120px] resize-y ${
-                  errors.message ? "border-red-500 bg-red-50" : "border-[#27548A]/20 bg-[#F3F3E0]"
+                  errors.message
+                    ? "border-red-500 bg-red-50"
+                    : "border-[#27548A]/20 bg-[#F3F3E0]"
                 } focus:outline-none focus:border-[#DDA853] focus:bg-white`}
                 placeholder="Please describe your inquiry in detail..."
               />
-              {errors.message && <p className="text-red-600 text-sm mt-1">{errors.message}</p>}
+              {errors.message && (
+                <p className="text-red-600 text-sm mt-1">{errors.message}</p>
+              )}
             </div>
 
             {/* Button */}
@@ -177,7 +216,7 @@ export default function ContactUs() {
           </form>
         </div>
 
-        {/* Info Section */}
+        {/* Info Section (unchanged) */}
         <div className="bg-gradient-to-tr from-[#27548A] to-[#183B4E] rounded-2xl p-10 text-white shadow-2xl">
           <h2 className="flex items-center gap-3 text-2xl font-bold mb-6">
             <div className="w-11 h-11 flex items-center justify-center rounded-xl bg-gradient-to-tr from-[#DDA853] to-[#e6b966]">
@@ -212,9 +251,11 @@ export default function ContactUs() {
         </div>
       </div>
 
-      {/* Support Hours */}
+      {/* Support Hours (unchanged) */}
       <div className="bg-white rounded-2xl p-8 shadow-xl border-2 border-[#DDA853]/20">
-        <h3 className="flex items-center gap-2 text-[#27548A] text-xl font-bold mb-5">🕒 Support Hours</h3>
+        <h3 className="flex items-center gap-2 text-[#27548A] text-xl font-bold mb-5">
+          🕒 Support Hours
+        </h3>
         <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
           <div className="bg-[#F3F3E0] p-4 rounded-lg border-l-4 border-[#DDA853] hover:-translate-y-1 transition">
             <strong className="text-[#27548A] block mb-1">Email Support</strong>

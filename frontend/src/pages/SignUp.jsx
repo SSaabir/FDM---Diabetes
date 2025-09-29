@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Heart, Loader2, Mail, Lock, User, Calendar, Phone, Eye, EyeOff } from 'lucide-react';
+import * as Yup from 'yup';
 
 export const SignUp = () => {
   const [formData, setFormData] = useState({
@@ -24,19 +25,79 @@ export const SignUp = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
-  
-  const { isAuthenticated, signup } = useAuth();
+
+  const { isAuthenticated } = useAuth();
   const { toast } = useToast();
-  const navigate = useNavigate();
 
   if (isAuthenticated) {
     return <Navigate to="/" replace />;
   }
 
+  const signUpSchema = Yup.object().shape({
+    fullName: Yup.string().required('Full name is required'),
+    email: Yup.string()
+      .email('Please enter a valid email address')
+      .required('Email is required'),
+    password: Yup.string()
+      .min(8, 'Password must be at least 8 characters')
+      .required('Password is required'),
+    confirmPassword: Yup.string()
+      .oneOf([Yup.ref('password')], 'Passwords do not match')
+      .required('Please confirm your password'),
+    termsAccepted: Yup.boolean().oneOf([true], 'You must accept the Terms of Service'),
+    privacyAccepted: Yup.boolean().oneOf([true], 'You must accept the Privacy Policy'),
+    phone: Yup.string().matches(/^\+?[0-9]*$/, 'Phone number is not valid').nullable(),
+    dateOfBirth: Yup.date().nullable(),
+  });
+
+  const validateForm = async () => {
+    try {
+      await signUpSchema.validate(formData, { abortEarly: false });
+      setErrors({});
+      return true;
+    } catch (err) {
+      const newErrors = {};
+      err.inner.forEach((e) => {
+        newErrors[e.path] = e.message;
+      });
+      setErrors(newErrors);
+      return false;
+    }
+  };
+
+  const handleBlur = async (field) => {
+    try {
+      await signUpSchema.validateAt(field, formData);
+      setErrors((prev) => ({ ...prev, [field]: '' }));
+    } catch (err) {
+      setErrors((prev) => ({ ...prev, [field]: err.message }));
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    const isValid = await validateForm();
+    if (!isValid) return;
+
+    setIsSubmitting(true);
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    toast({
+      title: "Account created successfully!",
+      description: "Welcome to DiabetesPredict. Please sign in to continue.",
+    });
+
+    setIsSubmitting(false);
+  };
+
+  const updateFormData = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
   const getPasswordStrength = (password) => {
     let strength = 0;
     let feedback = 'Very Weak';
-
     if (password.length >= 8) strength++;
     if (/[A-Z]/.test(password)) strength++;
     if (/[a-z]/.test(password)) strength++;
@@ -45,120 +106,16 @@ export const SignUp = () => {
 
     switch (strength) {
       case 0:
-      case 1:
-        feedback = 'Very Weak';
-        break;
-      case 2:
-        feedback = 'Weak';
-        break;
-      case 3:
-        feedback = 'Fair';
-        break;
-      case 4:
-        feedback = 'Good';
-        break;
-      case 5:
-        feedback = 'Strong';
-        break;
+      case 1: feedback = 'Very Weak'; break;
+      case 2: feedback = 'Weak'; break;
+      case 3: feedback = 'Fair'; break;
+      case 4: feedback = 'Good'; break;
+      case 5: feedback = 'Strong'; break;
     }
-
     return { strength, feedback };
   };
 
   const passwordStrength = getPasswordStrength(formData.password);
-
-  const validateForm = () => {
-    const newErrors = {};
-    
-    if (!formData.fullName.trim()) {
-      newErrors.fullName = 'Full name is required';
-    }
-
-    if (!formData.email) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address';
-    }
-
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (formData.password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters';
-    }
-
-    if (!formData.confirmPassword) {
-      newErrors.confirmPassword = 'Please confirm your password';
-    } else if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
-    }
-
-    if (!formData.termsAccepted) {
-      newErrors.termsAccepted = 'You must accept the Terms of Service';
-    }
-
-    if (!formData.privacyAccepted) {
-      newErrors.privacyAccepted = 'You must accept the Privacy Policy';
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
-
-    setIsSubmitting(true);
-    
-    try {
-      const signupData = {
-        email: formData.email,
-        password: formData.password,
-        full_name: formData.fullName,
-        ...(formData.phone && { phone: formData.phone }),
-        ...(formData.dateOfBirth && { date_of_birth: formData.dateOfBirth }),
-      };
-      
-      await signup(signupData);
-      
-      toast({
-        title: "Account created successfully!",
-        description: "Welcome to DiabetesPredict. Please sign in to continue.",
-      });
-      
-      // Redirect to login after successful signup
-      navigate('/login');
-    } catch (error) {
-      let errorMessage = "Please try again.";
-      
-      if (error.response?.data?.detail) {
-        if (Array.isArray(error.response.data.detail)) {
-          // Handle Pydantic validation errors
-          errorMessage = error.response.data.detail.map(err => err.msg).join(", ");
-        } else if (typeof error.response.data.detail === 'string') {
-          errorMessage = error.response.data.detail;
-        }
-      }
-      
-      toast({
-        variant: "destructive",
-        title: "Signup failed",
-        description: errorMessage,
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const updateFormData = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: undefined }));
-    }
-  };
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -175,9 +132,10 @@ export const SignUp = () => {
               </CardDescription>
             </div>
           </CardHeader>
-          
+
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Full Name */}
               <div className="space-y-2">
                 <Label htmlFor="fullName" className="flex items-center space-x-2 text-secondary">
                   <User className="h-4 w-4" />
@@ -188,14 +146,14 @@ export const SignUp = () => {
                   type="text"
                   value={formData.fullName}
                   onChange={(e) => updateFormData('fullName', e.target.value)}
+                  onBlur={() => handleBlur('fullName')}
                   placeholder="Enter your full name"
                   className={errors.fullName ? 'border-destructive' : ''}
                 />
-                {errors.fullName && (
-                  <p className="text-sm text-destructive">{errors.fullName}</p>
-                )}
+                {errors.fullName && <p className="text-sm text-destructive">{errors.fullName}</p>}
               </div>
 
+              {/* Email */}
               <div className="space-y-2">
                 <Label htmlFor="email" className="flex items-center space-x-2 text-secondary">
                   <Mail className="h-4 w-4" />
@@ -206,43 +164,14 @@ export const SignUp = () => {
                   type="email"
                   value={formData.email}
                   onChange={(e) => updateFormData('email', e.target.value)}
+                  onBlur={() => handleBlur('email')}
                   placeholder="Enter your email"
                   className={errors.email ? 'border-destructive' : ''}
                 />
-                {errors.email && (
-                  <p className="text-sm text-destructive">{errors.email}</p>
-                )}
+                {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="phone" className="flex items-center space-x-2 text-secondary">
-                    <Phone className="h-4 w-4" />
-                    <span>Phone Number (Optional)</span>
-                  </Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => updateFormData('phone', e.target.value)}
-                    placeholder="Your phone number"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="dateOfBirth" className="flex items-center space-x-2 text-secondary">
-                    <Calendar className="h-4 w-4" />
-                    <span>Date of Birth (Optional)</span>
-                  </Label>
-                  <Input
-                    id="dateOfBirth"
-                    type="date"
-                    value={formData.dateOfBirth}
-                    onChange={(e) => updateFormData('dateOfBirth', e.target.value)}
-                  />
-                </div>
-              </div>
-
+              {/* Password */}
               <div className="space-y-2">
                 <Label htmlFor="password" className="flex items-center space-x-2 text-secondary">
                   <Lock className="h-4 w-4" />
@@ -254,6 +183,7 @@ export const SignUp = () => {
                     type={showPassword ? 'text' : 'password'}
                     value={formData.password}
                     onChange={(e) => updateFormData('password', e.target.value)}
+                    onBlur={() => handleBlur('password')}
                     placeholder="Create a secure password"
                     className={errors.password ? 'border-destructive pr-12' : 'pr-12'}
                   />
@@ -294,11 +224,10 @@ export const SignUp = () => {
                     </div>
                   </div>
                 )}
-                {errors.password && (
-                  <p className="text-sm text-destructive">{errors.password}</p>
-                )}
+                {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
               </div>
 
+              {/* Confirm Password */}
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword" className="flex items-center space-x-2 text-secondary">
                   <Lock className="h-4 w-4" />
@@ -310,6 +239,7 @@ export const SignUp = () => {
                     type={showConfirmPassword ? 'text' : 'password'}
                     value={formData.confirmPassword}
                     onChange={(e) => updateFormData('confirmPassword', e.target.value)}
+                    onBlur={() => handleBlur('confirmPassword')}
                     placeholder="Confirm your password"
                     className={errors.confirmPassword ? 'border-destructive pr-12' : 'pr-12'}
                   />
@@ -321,11 +251,10 @@ export const SignUp = () => {
                     {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-                {errors.confirmPassword && (
-                  <p className="text-sm text-destructive">{errors.confirmPassword}</p>
-                )}
+                {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword}</p>}
               </div>
 
+              {/* Terms + Privacy */}
               <div className="space-y-4 p-4 bg-muted/30 rounded-lg">
                 <p className="text-sm font-medium text-secondary">Healthcare Data Protection</p>
                 <div className="space-y-3">
@@ -344,9 +273,7 @@ export const SignUp = () => {
                       and understand that my health data will be handled securely.
                     </Label>
                   </div>
-                  {errors.termsAccepted && (
-                    <p className="text-sm text-destructive ml-6">{errors.termsAccepted}</p>
-                  )}
+                  {errors.termsAccepted && <p className="text-sm text-destructive ml-6">{errors.termsAccepted}</p>}
 
                   <div className="flex items-start space-x-3">
                     <Checkbox
@@ -363,12 +290,11 @@ export const SignUp = () => {
                       and HIPAA compliance guidelines.
                     </Label>
                   </div>
-                  {errors.privacyAccepted && (
-                    <p className="text-sm text-destructive ml-6">{errors.privacyAccepted}</p>
-                  )}
+                  {errors.privacyAccepted && <p className="text-sm text-destructive ml-6">{errors.privacyAccepted}</p>}
                 </div>
               </div>
 
+              {/* Submit */}
               <Button
                 type="submit"
                 className="w-full bg-primary hover:bg-primary-hover text-primary-foreground"
@@ -397,8 +323,8 @@ export const SignUp = () => {
         </Card>
       </div>
     </div>
-    
   );
 };
 
 export default SignUp;
+
