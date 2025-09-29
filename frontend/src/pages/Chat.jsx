@@ -2,21 +2,33 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "../components/ui/button.jsx";
 import { Input } from "../components/ui/input.jsx";
 import { Card } from "../components/ui/card.jsx";
-import { Send, MessageCircle, Heart, Activity, Stethoscope, User, Bot } from "lucide-react";
+import { Send, MessageCircle, Heart, Activity, Stethoscope, User, Bot, Loader2, AlertCircle } from "lucide-react";
+import { Badge } from "../components/ui/badge.jsx";
 import { Link } from "react-router-dom";
+import { useToast } from "../hooks/use-toast.jsx";
+import { chatAPI, apiHelpers } from "../services/api.js";
 import Header from "../components/Header.jsx";
 import Footer from "../components/Footer.jsx";
 
 const Chat = () => {
+  const { toast } = useToast();
   const [messages, setMessages] = useState([
     {
       id: '1',
       text: "Hello! 👋 I'm your diabetes health assistant. How can I help you today? I can provide information about diabetes management, symptoms, or help you understand your health better! 🩺💙",
       sender: 'bot',
-      timestamp: new Date()
+      timestamp: new Date(),
+      intent: 'greeting'
     }
   ]);
   const [newMessage, setNewMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState([
+    "How can I prevent diabetes? 🛡️",
+    "What foods should I eat? 🥗",
+    "What are diabetes symptoms? 🩺",
+    "Exercise recommendations 💪"
+  ]);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -27,7 +39,52 @@ const Chat = () => {
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = () => {
+  // Load chat history on component mount
+  useEffect(() => {
+    loadChatHistory();
+    loadSuggestions();
+  }, []);
+
+  const loadChatHistory = async () => {
+    try {
+      const response = await chatAPI.getHistory(10);
+      const result = apiHelpers.handleSuccess(response);
+      
+      if (result.success && result.data.messages.length > 0) {
+        // Convert API messages to UI format
+        const apiMessages = result.data.messages.map((msg, index) => ({
+          id: `history_${index}`,
+          text: msg.message,
+          sender: msg.type === 'user' ? 'user' : 'bot',
+          timestamp: new Date(msg.timestamp),
+          intent: msg.intent,
+          urgency: msg.urgency
+        }));
+        
+        // Replace initial greeting with history
+        setMessages(apiMessages);
+      }
+    } catch (error) {
+      console.warn('Failed to load chat history:', error);
+      // Keep the default greeting message
+    }
+  };
+
+  const loadSuggestions = async () => {
+    try {
+      const response = await chatAPI.getSuggestions();
+      const result = apiHelpers.handleSuccess(response);
+      
+      if (result.success) {
+        setSuggestions(result.data.suggestions.slice(0, 4));
+      }
+    } catch (error) {
+      console.warn('Failed to load suggestions:', error);
+      // Keep default suggestions
+    }
+  };
+
+  const handleSendMessage = async () => {
     if (!newMessage.trim()) return;
 
     const userMessage = {
@@ -38,21 +95,67 @@ const Chat = () => {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const messageText = newMessage;
     setNewMessage("");
+    setIsLoading(true);
 
-    // Simulate bot response
-    setTimeout(() => {
-      const botResponse = {
+    try {
+      const response = await chatAPI.sendMessage(messageText);
+      const result = apiHelpers.handleSuccess(response);
+      
+      if (result.success) {
+        const botMessage = {
+          id: (Date.now() + 1).toString(),
+          text: result.data.message,
+          sender: 'bot',
+          timestamp: new Date(),
+          intent: result.data.intent,
+          urgency: result.data.urgency,
+          suggestions: result.data.suggestions
+        };
+        
+        setMessages(prev => [...prev, botMessage]);
+        
+        // Update suggestions if provided
+        if (result.data.suggestions && result.data.suggestions.length > 0) {
+          setSuggestions(result.data.suggestions.slice(0, 4));
+        }
+        
+        // Show urgency warning if applicable
+        if (result.data.urgency === 'high') {
+          toast({
+            title: "⚠️ Important Health Notice",
+            description: "The AI has identified an urgent health concern. Please review the response carefully.",
+            variant: "destructive",
+          });
+        }
+      }
+    } catch (error) {
+      const errorResult = apiHelpers.handleError(error);
+      
+      // Fall back to local response
+      const fallbackResponse = getBotResponseFallback(messageText);
+      const botMessage = {
         id: (Date.now() + 1).toString(),
-        text: getBotResponse(newMessage),
+        text: fallbackResponse,
         sender: 'bot',
-        timestamp: new Date()
+        timestamp: new Date(),
+        intent: 'fallback'
       };
-      setMessages(prev => [...prev, botResponse]);
-    }, 1000);
+      
+      setMessages(prev => [...prev, botMessage]);
+      
+      toast({
+        title: "Using Offline Mode",
+        description: "Connected to local assistant. For full AI features, ensure you're logged in.",
+        variant: "default",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const getBotResponse = (message) => {
+  const getBotResponseFallback = (message) => {
     const lowerMessage = message.toLowerCase();
     
     if (lowerMessage.includes('diabetes') || lowerMessage.includes('diabetic')) {
@@ -100,18 +203,34 @@ const Chat = () => {
                   className={`max-w-[80%] rounded-lg p-3 ${
                     message.sender === 'user'
                       ? 'bg-primary text-primary-foreground'
+                      : message.urgency === 'high'
+                      ? 'bg-red-50 text-red-900 border border-red-200'
                       : 'bg-secondary/10 text-secondary-foreground border'
                   }`}
                 >
                   <div className="flex items-start space-x-2">
                     {message.sender === 'bot' && (
-                      <Bot className="h-4 w-4 text-secondary mt-0.5 flex-shrink-0" />
+                      <div className={`h-4 w-4 mt-0.5 flex-shrink-0 ${
+                        message.urgency === 'high' ? 'text-red-600' : 'text-secondary'
+                      }`}>
+                        {message.urgency === 'high' ? <AlertCircle className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+                      </div>
                     )}
                     {message.sender === 'user' && (
                       <User className="h-4 w-4 text-primary-foreground mt-0.5 flex-shrink-0" />
                     )}
-                    <div>
-                      <p className="text-sm">{message.text}</p>
+                    <div className="flex-1">
+                      <p className="text-sm whitespace-pre-wrap">{message.text}</p>
+                      {message.urgency === 'high' && (
+                        <Badge variant="destructive" className="mt-2 text-xs">
+                          Urgent
+                        </Badge>
+                      )}
+                      {message.intent && message.sender === 'bot' && (
+                        <p className="text-xs mt-1 opacity-70">
+                          Topic: {message.intent.replace('_', ' ')}
+                        </p>
+                      )}
                       <p className={`text-xs mt-1 ${
                         message.sender === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'
                       }`}>
@@ -122,6 +241,24 @@ const Chat = () => {
                 </div>
               </div>
             ))}
+            
+            {/* Loading indicator */}
+            {isLoading && (
+              <div className="flex justify-start slide-in">
+                <div className="max-w-[80%] rounded-lg p-3 bg-secondary/10 text-secondary-foreground border">
+                  <div className="flex items-start space-x-2">
+                    <Loader2 className="h-4 w-4 text-secondary mt-0.5 flex-shrink-0 animate-spin" />
+                    <div>
+                      <p className="text-sm">AI is thinking...</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Analyzing your question
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <div ref={messagesEndRef} />
           </div>
 
@@ -129,18 +266,14 @@ const Chat = () => {
           <div className="p-3 border-t bg-muted/30">
             <p className="text-xs text-muted-foreground mb-2">Quick questions:</p>
             <div className="flex flex-wrap gap-2">
-              {[
-                "What are diabetes symptoms? 🩺",
-                "Diet recommendations 🥗",
-                "Exercise tips 💪",
-                "Blood sugar monitoring 📊"
-              ].map((suggestion) => (
+              {suggestions.map((suggestion, index) => (
                 <Button
-                  key={suggestion}
+                  key={index}
                   variant="outline"
                   size="sm"
                   className="text-xs"
                   onClick={() => setNewMessage(suggestion)}
+                  disabled={isLoading}
                 >
                   {suggestion}
                 </Button>
@@ -160,10 +293,14 @@ const Chat = () => {
               />
               <Button
                 onClick={handleSendMessage}
-                disabled={!newMessage.trim()}
+                disabled={!newMessage.trim() || isLoading}
                 className="gradient-accent"
               >
-                <Send className="h-4 w-4" />
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
               </Button>
             </div>
           </div>

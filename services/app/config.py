@@ -1,8 +1,11 @@
 import os
 from dotenv import load_dotenv
+from pathlib import Path
 
 # Load environment variables from .env file
-load_dotenv()
+# Get the directory of this file and go up one level to find .env
+env_path = Path(__file__).parent.parent / '.env'
+load_dotenv(env_path)
 
 class Settings:
     # Database - PostgreSQL required
