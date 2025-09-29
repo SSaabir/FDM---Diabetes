@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,8 +25,9 @@ export const SignUp = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
   
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, signup } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   if (isAuthenticated) {
     return <Navigate to="/" replace />;
@@ -112,16 +113,44 @@ export const SignUp = () => {
 
     setIsSubmitting(true);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    toast({
-      title: "Account created successfully!",
-      description: "Welcome to DiabetesPredict. Please sign in to continue.",
-    });
-    
-    setIsSubmitting(false);
-    // In a real app, you would redirect to sign in or auto-login
+    try {
+      const signupData = {
+        email: formData.email,
+        password: formData.password,
+        full_name: formData.fullName,
+        ...(formData.phone && { phone: formData.phone }),
+        ...(formData.dateOfBirth && { date_of_birth: formData.dateOfBirth }),
+      };
+      
+      await signup(signupData);
+      
+      toast({
+        title: "Account created successfully!",
+        description: "Welcome to DiabetesPredict. Please sign in to continue.",
+      });
+      
+      // Redirect to login after successful signup
+      navigate('/login');
+    } catch (error) {
+      let errorMessage = "Please try again.";
+      
+      if (error.response?.data?.detail) {
+        if (Array.isArray(error.response.data.detail)) {
+          // Handle Pydantic validation errors
+          errorMessage = error.response.data.detail.map(err => err.msg).join(", ");
+        } else if (typeof error.response.data.detail === 'string') {
+          errorMessage = error.response.data.detail;
+        }
+      }
+      
+      toast({
+        variant: "destructive",
+        title: "Signup failed",
+        description: errorMessage,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const updateFormData = (field, value) => {
