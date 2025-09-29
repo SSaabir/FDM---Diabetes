@@ -6,6 +6,7 @@ import { Send, MessageCircle, Heart, Activity, Stethoscope, User, Bot } from "lu
 import { Link } from "react-router-dom";
 import Header from "../components/Header.jsx";
 import Footer from "../components/Footer.jsx";
+import * as Yup from "yup"; // ✅ Import Yup for validation
 
 const Chat = () => {
   const [messages, setMessages] = useState([
@@ -17,6 +18,7 @@ const Chat = () => {
     }
   ]);
   const [newMessage, setNewMessage] = useState("");
+  const [errors, setErrors] = useState({});
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -27,29 +29,50 @@ const Chat = () => {
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = () => {
-    if (!newMessage.trim()) return;
+  // ✅ Yup schema for chat message
+  const messageSchema = Yup.object().shape({
+    text: Yup.string()
+      .trim()
+      .required("Message cannot be empty")
+      .max(300, "Message must be under 300 characters")
+  });
 
-    const userMessage = {
-      id: Date.now().toString(),
-      text: newMessage,
-      sender: 'user',
-      timestamp: new Date()
-    };
+  const handleSendMessage = async () => {
+    try {
+      // ✅ Validate with Yup
+      await messageSchema.validate({ text: newMessage }, { abortEarly: false });
+      setErrors({});
 
-    setMessages(prev => [...prev, userMessage]);
-    setNewMessage("");
-
-    // Simulate bot response
-    setTimeout(() => {
-      const botResponse = {
-        id: (Date.now() + 1).toString(),
-        text: getBotResponse(newMessage),
-        sender: 'bot',
+      const userMessage = {
+        id: Date.now().toString(),
+        text: newMessage,
+        sender: 'user',
         timestamp: new Date()
       };
-      setMessages(prev => [...prev, botResponse]);
-    }, 1000);
+
+      setMessages(prev => [...prev, userMessage]);
+      setNewMessage("");
+
+      // Simulate bot response
+      setTimeout(() => {
+        const botResponse = {
+          id: (Date.now() + 1).toString(),
+          text: getBotResponse(newMessage),
+          sender: 'bot',
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, botResponse]);
+      }, 1000);
+
+    } catch (err) {
+      if (err.inner) {
+        const newErrors = {};
+        err.inner.forEach((e) => {
+          newErrors[e.path] = e.message;
+        });
+        setErrors(newErrors);
+      }
+    }
   };
 
   const getBotResponse = (message) => {
@@ -72,7 +95,6 @@ const Chat = () => {
 
   return (
     <div className="min-h-screen bg-gradient-soft">
-      {/* Chat Container */}
       <div className="container mx-auto px-4 py-6 max-w-4xl">
         <Card className="medical-card h-[calc(100vh-200px)] flex flex-col">
           {/* Chat Header */}
@@ -150,21 +172,26 @@ const Chat = () => {
 
           {/* Input */}
           <div className="p-4 border-t">
-            <div className="flex space-x-2">
-              <Input
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                placeholder="Ask me about diabetes management, symptoms, or health tips... 💬"
-                className="flex-1"
-              />
-              <Button
-                onClick={handleSendMessage}
-                disabled={!newMessage.trim()}
-                className="gradient-accent"
-              >
-                <Send className="h-4 w-4" />
-              </Button>
+            <div className="flex flex-col space-y-2">
+              <div className="flex space-x-2">
+                <Input
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                  placeholder="Ask me about diabetes management, symptoms, or health tips... 💬"
+                  className={`flex-1 ${errors.text ? "border-destructive" : ""}`}
+                />
+                <Button
+                  onClick={handleSendMessage}
+                  disabled={!newMessage.trim()}
+                  className="gradient-accent"
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+              {errors.text && (
+                <p className="text-sm text-destructive">{errors.text}</p>
+              )}
             </div>
           </div>
         </Card>

@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Heart, Loader2, Mail, Lock } from 'lucide-react';
+import * as Yup from 'yup';
 
 export const Login = () => {
   const [email, setEmail] = useState('');
@@ -22,31 +23,50 @@ export const Login = () => {
     return <Navigate to="/" replace />;
   }
 
-  const validateForm = () => {
-    const newErrors = {};
-    
-    if (!email) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = 'Please enter a valid email address';
+  // ✅ Yup validation schema
+  const loginSchema = Yup.object().shape({
+    email: Yup.string()
+      .email('Please enter a valid email address')
+      .required('Email is required'),
+    password: Yup.string()
+      .min(6, 'Password must be at least 6 characters')
+      .required('Password is required'),
+  });
+
+  // ✅ Validate full form on submit
+  const validateForm = async () => {
+    try {
+      await loginSchema.validate(
+        { email, password },
+        { abortEarly: false }
+      );
+      setErrors({});
+      return true;
+    } catch (err) {
+      const newErrors = {};
+      err.inner.forEach((e) => {
+        newErrors[e.path] = e.message;
+      });
+      setErrors(newErrors);
+      return false;
     }
-    
-    if (!password) {
-      newErrors.password = 'Password is required';
-    } else if (password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+  };
+
+  // ✅ Validate single field on blur
+  const handleBlur = async (field) => {
+    try {
+      await loginSchema.validateAt(field, { email, password });
+      setErrors((prev) => ({ ...prev, [field]: '' }));
+    } catch (err) {
+      setErrors((prev) => ({ ...prev, [field]: err.message }));
     }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!validateForm()) {
-      return;
-    }
+    const isValid = await validateForm();
+    if (!isValid) return;
 
     const success = await login(email, password);
     
@@ -82,6 +102,7 @@ export const Login = () => {
           
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Email */}
               <div className="space-y-2">
                 <Label htmlFor="email" className="flex items-center space-x-2 text-secondary">
                   <Mail className="h-4 w-4" />
@@ -92,6 +113,7 @@ export const Login = () => {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  onBlur={() => handleBlur('email')}
                   placeholder="Enter your email"
                   className={errors.email ? 'border-destructive' : ''}
                 />
@@ -100,6 +122,7 @@ export const Login = () => {
                 )}
               </div>
 
+              {/* Password */}
               <div className="space-y-2">
                 <Label htmlFor="password" className="flex items-center space-x-2 text-secondary">
                   <Lock className="h-4 w-4" />
@@ -110,6 +133,7 @@ export const Login = () => {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onBlur={() => handleBlur('password')}
                   placeholder="Enter your password"
                   className={errors.password ? 'border-destructive' : ''}
                 />
@@ -118,6 +142,7 @@ export const Login = () => {
                 )}
               </div>
 
+              {/* Remember Me + Forgot */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <Checkbox
@@ -137,6 +162,7 @@ export const Login = () => {
                 </Link>
               </div>
 
+              {/* Submit */}
               <Button
                 type="submit"
                 className="w-full bg-primary hover:bg-primary-hover text-primary-foreground"
@@ -165,7 +191,6 @@ export const Login = () => {
         </Card>
       </div>
     </div>
-    
   );
 };
 
