@@ -25,7 +25,7 @@ export const SignUp = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
-  
+
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
 
@@ -33,7 +33,6 @@ export const SignUp = () => {
     return <Navigate to="/" replace />;
   }
 
-  // ✅ Yup schema
   const signUpSchema = Yup.object().shape({
     fullName: Yup.string().required('Full name is required'),
     email: Yup.string()
@@ -51,7 +50,6 @@ export const SignUp = () => {
     dateOfBirth: Yup.date().nullable(),
   });
 
-  // ✅ Validate whole form
   const validateForm = async () => {
     try {
       await signUpSchema.validate(formData, { abortEarly: false });
@@ -67,7 +65,6 @@ export const SignUp = () => {
     }
   };
 
-  // ✅ Validate single field on blur
   const handleBlur = async (field) => {
     try {
       await signUpSchema.validateAt(field, formData);
@@ -79,29 +76,25 @@ export const SignUp = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     const isValid = await validateForm();
     if (!isValid) return;
 
     setIsSubmitting(true);
-    
-    // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 2000));
-    
+
     toast({
       title: "Account created successfully!",
       description: "Welcome to DiabetesPredict. Please sign in to continue.",
     });
-    
+
     setIsSubmitting(false);
-    // In real app, redirect or auto-login
   };
 
   const updateFormData = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // Password strength helper
   const getPasswordStrength = (password) => {
     let strength = 0;
     let feedback = 'Very Weak';
@@ -139,7 +132,7 @@ export const SignUp = () => {
               </CardDescription>
             </div>
           </CardHeader>
-          
+
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Full Name */}
@@ -176,40 +169,6 @@ export const SignUp = () => {
                   className={errors.email ? 'border-destructive' : ''}
                 />
                 {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
-              </div>
-
-              {/* Phone + DOB */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="phone" className="flex items-center space-x-2 text-secondary">
-                    <Phone className="h-4 w-4" />
-                    <span>Phone Number (Optional)</span>
-                  </Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => updateFormData('phone', e.target.value)}
-                    onBlur={() => handleBlur('phone')}
-                    placeholder="Your phone number"
-                  />
-                  {errors.phone && <p className="text-sm text-destructive">{errors.phone}</p>}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="dateOfBirth" className="flex items-center space-x-2 text-secondary">
-                    <Calendar className="h-4 w-4" />
-                    <span>Date of Birth (Optional)</span>
-                  </Label>
-                  <Input
-                    id="dateOfBirth"
-                    type="date"
-                    value={formData.dateOfBirth}
-                    onChange={(e) => updateFormData('dateOfBirth', e.target.value)}
-                    onBlur={() => handleBlur('dateOfBirth')}
-                  />
-                  {errors.dateOfBirth && <p className="text-sm text-destructive">{errors.dateOfBirth}</p>}
-                </div>
               </div>
 
               {/* Password */}
@@ -368,3 +327,4 @@ export const SignUp = () => {
 };
 
 export default SignUp;
+

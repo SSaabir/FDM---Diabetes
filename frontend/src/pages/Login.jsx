@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,9 +18,14 @@ export const Login = () => {
   
   const { login, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
+  const location = useLocation();
+
+  // Get the message from location state
+  const message = location.state?.message;
 
   if (isAuthenticated) {
-    return <Navigate to="/" replace />;
+    const redirectTo = location.state?.from?.pathname || '/';
+    return <Navigate to={redirectTo} replace />;
   }
 
   // ✅ Yup validation schema
@@ -68,18 +73,26 @@ export const Login = () => {
     const isValid = await validateForm();
     if (!isValid) return;
 
-    const success = await login(email, password);
-    
-    if (success) {
+    try {
+      await login(email, password);
       toast({
         title: "Welcome back!",
         description: "You have successfully logged in.",
       });
-    } else {
+      // Redirect will happen automatically due to isAuthenticated change
+    } catch (error) {
+      let errorMessage = "Please check your email and password.";
+      
+      if (error.response?.data?.detail) {
+        if (typeof error.response.data.detail === 'string') {
+          errorMessage = error.response.data.detail;
+        }
+      }
+      
       toast({
         variant: "destructive",
         title: "Login failed",
-        description: "Please check your email and password.",
+        description: errorMessage,
       });
     }
   };
@@ -95,7 +108,7 @@ export const Login = () => {
             <div>
               <CardTitle className="text-2xl font-bold text-primary">Welcome Back</CardTitle>
               <CardDescription className="text-muted-foreground">
-                Sign in to your DiabetesPredict account
+                {message || "Sign in to your DiabetesPredict account"}
               </CardDescription>
             </div>
           </CardHeader>
