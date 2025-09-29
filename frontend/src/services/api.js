@@ -60,6 +60,41 @@ export const authAPI = {
   },
 };
 
+// Prediction API functions
+export const predictionAPI = {
+  // Get diabetes risk prediction
+  predict: (predictionData) => api.post('/api/predict', predictionData),
+  
+  // Validate prediction input
+  validateInput: (predictionData) => api.post('/api/validate-input', predictionData),
+  
+  // Get model information
+  getModelInfo: () => api.get('/api/model-info'),
+};
+
+// Chat AI API functions
+export const chatAPI = {
+  // Send message to AI chat
+  sendMessage: (message, context = null) => api.post('/api/chat', { 
+    message, 
+    context 
+  }),
+  
+  // Get conversation history
+  getHistory: (limit = 10) => api.get(`/api/chat/history?limit=${limit}`),
+  
+  // Clear conversation history
+  clearHistory: () => api.delete('/api/chat/history'),
+  
+  // Get suggested questions
+  getSuggestions: () => api.get('/api/chat/suggestions'),
+  
+  // Get quick response (without saving to history)
+  quickResponse: (message) => api.post('/api/chat/quick-response', null, {
+    params: { message }
+  }),
+};
+
 // Generic API functions
 export const apiHelpers = {
   // Handle API errors consistently

@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "../hooks/use-toast.jsx";
+import { predictionAPI, apiHelpers } from "../services/api.js";
 import Header from "../components/Header.jsx";
 import Footer from "../components/Footer.jsx";
 
@@ -51,83 +52,138 @@ const Prediction = () => {
     return weightKg / (heightM * heightM);
   };
 
-  const calculateRisk = () => {
+  const calculateRisk = async () => {
     setIsLoading(true);
     
-    // Simulate API call with realistic calculation
-    setTimeout(() => {
-      let riskScore = 0;
+    try {
+      // Convert form data to API format
+      const apiData = {
+        age: parseInt(formData.age),
+        gender: formData.gender,
+        height: parseFloat(formData.height),
+        weight: parseFloat(formData.weight),
+        familyHistory: formData.familyHistory,
+        physicalActivity: formData.physicalActivity,
+        smoking: formData.smoking,
+        bloodPressure: formData.bloodPressure,
+        cholesterol: formData.cholesterol
+      };
+
+      // Call the prediction API
+      const response = await predictionAPI.predict(apiData);
+      const result = apiHelpers.handleSuccess(response);
       
-      // Age factor
-      const age = parseInt(formData.age);
-      if (age > 45) riskScore += 20;
-      else if (age > 35) riskScore += 10;
-      
-      // BMI factor
-      const bmi = calculateBMI();
-      if (bmi > 30) riskScore += 25;
-      else if (bmi > 25) riskScore += 15;
-      
-      // Family history
-      if (formData.familyHistory === 'yes') riskScore += 20;
-      
-      // Lifestyle factors
-      if (formData.physicalActivity === 'low') riskScore += 15;
-      if (formData.smoking === 'yes') riskScore += 10;
-      if (formData.bloodPressure === 'high') riskScore += 15;
-      if (formData.cholesterol === 'high') riskScore += 10;
-      
-      // Gender factor
-      if (formData.gender === 'male') riskScore += 5;
-      
-      // Normalize to percentage
-      const riskPercentage = Math.min(riskScore, 100);
-      
-      let level;
-      let recommendations;
-      
-      if (riskPercentage < 30) {
-        level = 'low';
-        recommendations = [
-          '🍎 Maintain a balanced, healthy diet',
-          '🏃‍♀️ Continue regular physical activity',
-          '📊 Monitor your health annually',
-          '💪 Keep up the great lifestyle habits!'
-        ];
-      } else if (riskPercentage < 70) {
-        level = 'moderate';
-        recommendations = [
-          '🥗 Adopt a diabetes-friendly diet',
-          '🚶‍♂️ Increase physical activity to 150 min/week',
-          '⚖️ Work on achieving a healthy weight',
-          '🩺 Schedule regular health check-ups',
-          '🚭 Consider smoking cessation if applicable'
-        ];
+      if (result.success) {
+        const predictionData = result.data;
+        
+        setPrediction({
+          risk: predictionData.risk_percentage,
+          level: predictionData.risk_level,
+          recommendations: predictionData.recommendations,
+          bmi: predictionData.bmi,
+          modelUsed: predictionData.model_used,
+          confidence: predictionData.confidence
+        });
+        
+        toast({
+          title: "Prediction Complete! 🎯",
+          description: `Your diabetes risk has been calculated using ${predictionData.model_used}.`,
+        });
       } else {
-        level = 'high';
-        recommendations = [
-          '👨‍⚕️ Consult with a healthcare provider immediately',
-          '🍽️ Follow a strict diabetic meal plan',
-          '💊 Discuss preventive medications with your doctor',
-          '📱 Monitor blood sugar levels regularly',
-          '🏥 Schedule comprehensive health screening',
-          '👥 Consider joining a diabetes support group'
-        ];
+        throw new Error(result.message || 'Prediction failed');
       }
       
-      setPrediction({
-        risk: riskPercentage,
-        level,
-        recommendations
-      });
-      
-      setIsLoading(false);
+    } catch (error) {
+      const errorResult = apiHelpers.handleError(error);
       
       toast({
-        title: "Prediction Complete! 🎯",
-        description: "Your diabetes risk assessment has been calculated.",
+        title: "Prediction Failed ❌",
+        description: errorResult.message,
+        variant: "destructive",
       });
-    }, 2000);
+      
+      // Fall back to local calculation in case of API error
+      console.warn('API prediction failed, using fallback calculation:', errorResult.message);
+      calculateRiskFallback();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const calculateRiskFallback = () => {
+    // Fallback calculation (original logic)
+    let riskScore = 0;
+    
+    // Age factor
+    const age = parseInt(formData.age);
+    if (age > 45) riskScore += 20;
+    else if (age > 35) riskScore += 10;
+    
+    // BMI factor
+    const bmi = calculateBMI();
+    if (bmi > 30) riskScore += 25;
+    else if (bmi > 25) riskScore += 15;
+    
+    // Family history
+    if (formData.familyHistory === 'yes') riskScore += 20;
+    
+    // Lifestyle factors
+    if (formData.physicalActivity === 'low') riskScore += 15;
+    if (formData.smoking === 'yes') riskScore += 10;
+    if (formData.bloodPressure === 'high') riskScore += 15;
+    if (formData.cholesterol === 'high') riskScore += 10;
+    
+    // Gender factor
+    if (formData.gender === 'male') riskScore += 5;
+    
+    // Normalize to percentage
+    const riskPercentage = Math.min(riskScore, 100);
+    
+    let level;
+    let recommendations;
+    
+    if (riskPercentage < 30) {
+      level = 'low';
+      recommendations = [
+        '🍎 Maintain a balanced, healthy diet',
+        '🏃‍♀️ Continue regular physical activity',
+        '📊 Monitor your health annually',
+        '💪 Keep up the great lifestyle habits!'
+      ];
+    } else if (riskPercentage < 70) {
+      level = 'moderate';
+      recommendations = [
+        '🥗 Adopt a diabetes-friendly diet',
+        '🚶‍♂️ Increase physical activity to 150 min/week',
+        '⚖️ Work on achieving a healthy weight',
+        '🩺 Schedule regular health check-ups',
+        '🚭 Consider smoking cessation if applicable'
+      ];
+    } else {
+      level = 'high';
+      recommendations = [
+        '👨‍⚕️ Consult with a healthcare provider immediately',
+        '🍽️ Follow a strict diabetic meal plan',
+        '💊 Discuss preventive medications with your doctor',
+        '📱 Monitor blood sugar levels regularly',
+        '🏥 Schedule comprehensive health screening',
+        '👥 Consider joining a diabetes support group'
+      ];
+    }
+    
+    setPrediction({
+      risk: riskPercentage,
+      level,
+      recommendations,
+      bmi: calculateBMI(),
+      modelUsed: 'Fallback Calculator',
+      confidence: 'basic'
+    });
+    
+    toast({
+      title: "Prediction Complete! 🎯",
+      description: "Risk calculated using offline method.",
+    });
   };
 
   const isFormValid = () => {
@@ -235,6 +291,9 @@ const Prediction = () => {
                   <div className="p-3 bg-muted/50 rounded-lg">
                     <p className="text-sm text-muted-foreground">
                       Your BMI: <span className="font-semibold">{calculateBMI().toFixed(1)}</span>
+                      {prediction && prediction.bmi && prediction.bmi !== calculateBMI() && (
+                        <span className="ml-2 text-xs">(API calculated: {prediction.bmi})</span>
+                      )}
                     </p>
                   </div>
                 )}
@@ -402,7 +461,7 @@ const Prediction = () => {
                         <Shield className="h-4 w-4" />
                         <span>What This Means</span>
                       </h4>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-muted-foreground mb-2">
                         {prediction.level === 'low' 
                           ? "Great news! Your current lifestyle and health indicators suggest a low risk for developing diabetes. Keep up the healthy habits! 🌟"
                           : prediction.level === 'moderate'
@@ -410,6 +469,12 @@ const Prediction = () => {
                           : "Your risk level is high. It's important to take immediate action and consult with healthcare professionals. Early intervention can make a significant difference. 🏥"
                         }
                       </p>
+                      {prediction.modelUsed && (
+                        <p className="text-xs text-muted-foreground">
+                          🤖 Analysis performed using: <span className="font-medium">{prediction.modelUsed}</span>
+                          {prediction.confidence && ` (${prediction.confidence} confidence)`}
+                        </p>
+                      )}
                     </div>
 
                     {/* Recommendations */}
