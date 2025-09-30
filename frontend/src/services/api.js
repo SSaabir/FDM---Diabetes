@@ -62,8 +62,20 @@ export const authAPI = {
 
 // Prediction API functions
 export const predictionAPI = {
-  // Get diabetes risk prediction
-  predict: (predictionData) => api.post('/api/predict', predictionData),
+  // Get diabetes risk prediction (try public endpoint first, then authenticated)
+  predict: async (predictionData) => {
+    try {
+      // Try public endpoint first (higher rate limit, no auth required)
+      return await api.post('/api/predict-public', predictionData);
+    } catch (error) {
+      if (error.response?.status === 429) {
+        // If rate limited on public, try authenticated endpoint
+        console.warn('Public endpoint rate limited, trying authenticated endpoint');
+        return await api.post('/api/predict', predictionData);
+      }
+      throw error;
+    }
+  },
   
   // Validate prediction input
   validateInput: (predictionData) => api.post('/api/validate-input', predictionData),

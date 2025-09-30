@@ -2,12 +2,15 @@ import numpy as np
 from pathlib import Path
 from typing import Any, Dict
 import logging
+import joblib
+import json
 
 logger = logging.getLogger(__name__)
 
 class DiabetesPredictionService:
     def __init__(self):
         self.models_path = Path(__file__).parent.parent.parent / "models"
+        self.processed_data_path = Path(__file__).parent.parent.parent / "data" / "processed_enhanced"
         self.rf_model = None
         self.feature_columns = None
         self.scaler = None
@@ -48,7 +51,7 @@ class DiabetesPredictionService:
     # -------------------------------
     def preprocess_input(self, user_input: Dict[str, Any]) -> np.ndarray:
         """
-        Preprocess user input using same scaling as training data
+        Preprocess user input for Random Forest model with all 29 features
         """
         try:
             # Sanitize inputs
@@ -56,14 +59,45 @@ class DiabetesPredictionService:
             height = self._sanitize_input('height', user_input.get('height', 170))
             weight = self._sanitize_input('weight', user_input.get('weight', 70))
             bmi = weight / ((height / 100) ** 2)
-            hba1c_val = self._sanitize_input('hbA1c_level', user_input.get('hbA1c_level', 5.5))
-            glucose_val = self._sanitize_input('blood_glucose_level', user_input.get('blood_glucose_level', 100))
             gender = self._sanitize_input('gender', user_input.get('gender', ''))
+            smoking = self._sanitize_input('smoking', user_input.get('smoking', 'never'))
+            
+            # Estimate HbA1c and glucose based on risk factors if not provided
+            hba1c_val = user_input.get('hbA1c_level')
+            glucose_val = user_input.get('blood_glucose_level')
+            
+            if hba1c_val is None:
+                # Estimate HbA1c based on risk factors
+                base_hba1c = 5.2  # Normal baseline
+                if age > 45: base_hba1c += 0.2
+                if bmi > 30: base_hba1c += 0.4
+                elif bmi > 25: base_hba1c += 0.2
+                if user_input.get('familyHistory') == 'yes': base_hba1c += 0.3
+                if user_input.get('physicalActivity') == 'low': base_hba1c += 0.3
+                if user_input.get('bloodPressure') == 'high': base_hba1c += 0.2
+                if user_input.get('cholesterol') == 'high': base_hba1c += 0.2
+                if smoking in ['yes', 'current']: base_hba1c += 0.1
+                hba1c_val = min(base_hba1c, 8.0)  # Cap at reasonable max
+                
+            if glucose_val is None:
+                # Estimate glucose based on risk factors
+                base_glucose = 90  # Normal baseline
+                if age > 45: base_glucose += 5
+                if bmi > 30: base_glucose += 15
+                elif bmi > 25: base_glucose += 8
+                if user_input.get('familyHistory') == 'yes': base_glucose += 10
+                if user_input.get('physicalActivity') == 'low': base_glucose += 10
+                if user_input.get('bloodPressure') == 'high': base_glucose += 8
+                if user_input.get('cholesterol') == 'high': base_glucose += 5
+                glucose_val = min(base_glucose, 180)  # Cap at reasonable max
 
-            # Initialize feature dictionary
+            hba1c_val = self._sanitize_input('hbA1c_level', hba1c_val)
+            glucose_val = self._sanitize_input('blood_glucose_level', glucose_val)
+
+            # Initialize feature dictionary with all 29 features
             features_dict = {col: 0.0 for col in self.feature_columns}
 
-            # Apply scaling
+            # Basic features with proper scaling
             features_dict['age'] = (age - 41.885856) / 22.51683987161702
             features_dict['bmi'] = (bmi - 27.320767099999994) / 6.636783416648368
             features_dict['hbA1c_level'] = (hba1c_val - 6.0) / 1.5
@@ -73,14 +107,51 @@ class DiabetesPredictionService:
             features_dict['gender_Female'] = 1.0 if gender == 'female' else 0.0
             features_dict['gender_Male'] = 1.0 if gender == 'male' else 0.0
 
-            # Smoking history
-            smoking = self._sanitize_input('smoking', user_input.get('smoking', 'never'))
-            features_dict['smoking_history_never'] = 1.0 if smoking in ['no', 'never'] else 0.0
-            features_dict['smoking_history_current'] = 1.0 if smoking in ['yes', 'current'] else 0.0
-            features_dict['smoking_history_former'] = 1.0 if smoking == 'former' else 0.0
+            # Smoking history - map form values to model features
+            if smoking in ['no', 'never']:
+                features_dict['smoking_history_never'] = 1.0
+            elif smoking in ['yes', 'current']:
+                features_dict['smoking_history_current'] = 1.0
+            elif smoking == 'former':
+                features_dict['smoking_history_former'] = 1.0
+            else:
+                features_dict['smoking_history_never'] = 1.0  # default
 
-            # Convert to numpy array
+            # BMI categories
+            if bmi < 18.5:
+                features_dict['bmi_category_Underweight'] = 1.0
+                features_dict['bmi_risk_level_underweight'] = 1.0
+            elif bmi < 25:
+                features_dict['bmi_category_Normal'] = 1.0
+                features_dict['bmi_risk_level_normal'] = 1.0
+            elif bmi < 30:
+                features_dict['bmi_category_Overweight'] = 1.0
+                features_dict['bmi_risk_level_overweight'] = 1.0
+            elif bmi < 35:
+                features_dict['bmi_category_Obese'] = 1.0
+                features_dict['bmi_risk_level_obese_1'] = 1.0
+            else:
+                features_dict['bmi_category_Obese'] = 1.0
+                features_dict['bmi_risk_level_obese_2'] = 1.0
+
+            # Age groups
+            if age < 18:
+                features_dict['age_group_Child'] = 1.0
+                features_dict['age_diabetes_risk_low_risk'] = 1.0
+            elif age < 45:
+                features_dict['age_group_Adult'] = 1.0
+                features_dict['age_diabetes_risk_low_risk'] = 1.0
+            elif age < 65:
+                features_dict['age_group_Middle-aged'] = 1.0
+                features_dict['age_diabetes_risk_moderate_risk'] = 1.0
+            else:
+                features_dict['age_group_Senior'] = 1.0
+                features_dict['age_diabetes_risk_high_risk'] = 1.0
+
+            # Convert to numpy array in correct order
             feature_array = np.array([features_dict[col] for col in self.feature_columns]).reshape(1, -1)
+            logger.info(f"✅ Generated all {len(self.feature_columns)} features for Random Forest model")
+            logger.info(f"🔬 Estimated HbA1c: {hba1c_val:.1f}, Glucose: {glucose_val:.0f}")
             return feature_array
 
         except Exception as e:
@@ -181,15 +252,49 @@ class DiabetesPredictionService:
     # -------------------------------
     def _generate_recommendations(self, user_input: Dict[str, Any], risk_level: str):
         """
-        Generate health recommendations based on risk
+        Generate comprehensive health recommendations based on risk level and user profile
         """
         recommendations = []
+        age = float(user_input.get('age', 30))
+        height = float(user_input.get('height', 170))
+        weight = float(user_input.get('weight', 70))
+        bmi = weight / ((height / 100) ** 2)
+        
         if risk_level.lower().startswith("high"):
-            recommendations.append("Consult a healthcare provider immediately.")
+            recommendations.extend([
+                "🏥 Consult with a healthcare provider within 2 weeks",
+                "🍽️ Follow a strict low-glycemic meal plan",
+                "💊 Discuss preventive medications (metformin) with doctor",
+                "🩸 Get comprehensive blood work (HbA1c, fasting glucose)",
+                "📋 Consider referral to endocrinologist"
+            ])
+            if bmi > 30:
+                recommendations.append("⚖️ Work with nutritionist for weight management")
+            if user_input.get('physicalActivity') == 'low':
+                recommendations.append("🏋️‍♂️ Start supervised exercise program")
+                
         elif risk_level.lower().startswith("moderate"):
-            recommendations.append("Maintain healthy diet and exercise regularly.")
-        else:
-            recommendations.append("Keep up your healthy lifestyle.")
+            recommendations.extend([
+                "🍎 Follow diabetes prevention diet (low processed foods)",
+                "🏋️‍♂️ Increase physical activity to 200+ min/week",
+                "🩺 Schedule health check-ups every 6 months",
+                "📊 Monitor blood pressure and cholesterol regularly"
+            ])
+            if bmi > 25:
+                recommendations.append("⚖️ Work towards achieving ideal body weight")
+            if user_input.get('smoking') in ['yes', 'current']:
+                recommendations.append("🚭 Consider smoking cessation programs")
+                
+        else:  # Low risk
+            recommendations.extend([
+                "🥗 Maintain a balanced, nutrient-rich diet",
+                "🏃‍♂️ Continue regular physical activity (150+ min/week)",
+                "📅 Schedule annual health screenings",
+                "💧 Stay well-hydrated and limit sugary drinks"
+            ])
+            if age > 40:
+                recommendations.append("🧪 Annual diabetes screening recommended")
+                
         return recommendations
 
     # -------------------------------
@@ -197,17 +302,54 @@ class DiabetesPredictionService:
     # -------------------------------
     def load_models(self):
         """
-        Load ML models and feature columns from disk
+        Load ML models, feature columns, and scaler from disk
         """
         try:
-            # Example: load your Random Forest model
-            # self.rf_model = joblib.load(self.models_path / "rf_model.pkl")
-            # self.feature_columns = joblib.load(self.models_path / "feature_columns.pkl")
-            logger.info("Models loaded successfully")
+            # Load Random Forest model
+            rf_model_path = self.models_path / "diabetes_rf_tuned.pkl"
+            if rf_model_path.exists():
+                self.rf_model = joblib.load(rf_model_path)
+                logger.info("✅ Random Forest model loaded successfully")
+            else:
+                logger.warning("❌ Random Forest model not found")
+                
+            # Load feature columns
+            feature_cols_path = self.models_path / "feature_columns.json"
+            if feature_cols_path.exists():
+                with open(feature_cols_path, 'r') as f:
+                    feature_data = json.load(f)
+                    # Handle both list and dict formats
+                    if isinstance(feature_data, list):
+                        self.feature_columns = feature_data
+                    elif isinstance(feature_data, dict):
+                        self.feature_columns = feature_data.get('features', list(feature_data.keys()))
+                    else:
+                        raise ValueError("Unexpected feature columns format")
+                logger.info(f"✅ Feature columns loaded: {len(self.feature_columns)} features")
+            else:
+                logger.warning("❌ Feature columns file not found, using default")
+                self.feature_columns = ["age", "bmi", "hbA1c_level", "blood_glucose_level",
+                                      "gender_Female", "gender_Male", 
+                                      "smoking_history_never", "smoking_history_current", "smoking_history_former"]
+            
+            # Load the enhanced preprocessing scaler
+            scaler_path = self.processed_data_path / "feature_scaler.pkl"
+            if scaler_path.exists():
+                self.scaler = joblib.load(scaler_path)
+                logger.info("✅ Enhanced preprocessing scaler loaded successfully")
+            else:
+                logger.warning("❌ Enhanced preprocessing scaler not found, will use manual scaling")
+                self.scaler = None
+                
         except Exception as e:
-            logger.warning(f"Failed to load models: {str(e)}")
+            logger.error(f"❌ Failed to load models: {str(e)}")
+            # Set fallback values
             self.rf_model = None
             self.feature_columns = ["age", "bmi", "hbA1c_level", "blood_glucose_level",
-                                    "gender_Female", "gender_Male",
-                                    "smoking_history_never", "smoking_history_current", "smoking_history_former"]
+                                  "gender_Female", "gender_Male",
+                                  "smoking_history_never", "smoking_history_current", "smoking_history_former"]
             self.scaler = None
+
+
+# Create a global instance of the prediction service
+prediction_service = DiabetesPredictionService()

@@ -46,6 +46,9 @@ def create_application() -> FastAPI:
     app.include_router(auth_router, prefix="/auth", tags=["authentication"])
     app.include_router(prediction_router, prefix="/api", tags=["prediction"])
     app.include_router(chat_router, prefix="/api", tags=["chat"])
+    
+    # Add public prediction route at root level for easy access
+    app.include_router(prediction_router, prefix="", tags=["public"])
 
     @app.get("/")
     async def root():
