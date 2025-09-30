@@ -10,6 +10,13 @@ import { useToast } from '@/hooks/use-toast';
 import { Heart, Loader2, Mail, Lock } from 'lucide-react';
 import * as Yup from 'yup';
 
+// ✅ Sanitization helper
+const sanitizeInput = (value) => {
+  return value
+    .trim() // remove spaces
+    .replace(/[<>]/g, ""); // remove < >
+};
+
 export const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -70,16 +77,19 @@ export const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // ✅ sanitize inputs before validation & submit
+    const cleanEmail = sanitizeInput(email);
+    const cleanPassword = sanitizeInput(password);
+
     const isValid = await validateForm();
     if (!isValid) return;
 
     try {
-      await login(email, password);
+      await login(cleanEmail, cleanPassword); // send sanitized data
       toast({
         title: "Welcome back!",
         description: "You have successfully logged in.",
       });
-      // Redirect will happen automatically due to isAuthenticated change
     } catch (error) {
       let errorMessage = "Please check your email and password.";
       
@@ -125,7 +135,7 @@ export const Login = () => {
                   id="email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => setEmail(sanitizeInput(e.target.value))}
                   onBlur={() => handleBlur('email')}
                   placeholder="Enter your email"
                   className={errors.email ? 'border-destructive' : ''}
@@ -145,7 +155,7 @@ export const Login = () => {
                   id="password"
                   type="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => setPassword(sanitizeInput(e.target.value))}
                   onBlur={() => handleBlur('password')}
                   placeholder="Enter your password"
                   className={errors.password ? 'border-destructive' : ''}
