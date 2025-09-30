@@ -18,6 +18,8 @@ import Header from './components/Header.jsx';
 import Footer from './components/Footer.jsx';
 import TermsAndConditions from './pages/TermsAndConditions.jsx';
 import ContactUs from "./pages/ContactUs.jsx";
+import Dashboard from "./pages/Dashboard.jsx";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -34,6 +36,8 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<SignUp />} />
             <Route path="/faq" element={<FAQ />} />
+            <Route path="/admindashboard" element={<AdminDashboard />} />
+            <Route path="/dashboard" element={<Dashboard />} />
             <Route 
               path="/assessment" 
               element={

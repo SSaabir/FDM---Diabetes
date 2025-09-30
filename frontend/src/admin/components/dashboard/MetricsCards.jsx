@@ -1,7 +1,28 @@
-import React from 'react';
-import StatCard from '../ui/StatCard';
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+import StatCard from "../ui/StatCard";
 
-const MetricsCards = ({ data, loading }) => {
+const MetricsCards = () => {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchMetrics = async () => {
+    try {
+      const res = await axios.get("http://localhost:8000/api/metrics/metrics"); 
+      setData(res.data);
+    } catch (error) {
+      console.error("Error fetching metrics:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMetrics();
+    const interval = setInterval(fetchMetrics, 30000); // refresh every 30s
+    return () => clearInterval(interval);
+  }, []);
+
   if (loading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -19,21 +40,21 @@ const MetricsCards = ({ data, loading }) => {
   const metrics = [
     {
       title: "Total Users",
-      value: data?.totalUsers?.toLocaleString() || "12,547",
-      change: "+12%",
+      value: data?.totalUsers?.toLocaleString(),
+      change: "+12%", // optional, calculate in backend later
       icon: "Users",
       color: "blue"
     },
     {
       title: "Active Today",
-      value: data?.activeToday?.toLocaleString() || "1,823",
+      value: data?.activeToday?.toLocaleString(),
       change: null,
       icon: "Activity",
       color: "green"
     },
     {
       title: "Model Accuracy",
-      value: data?.modelAccuracy ? `${(data.modelAccuracy * 100).toFixed(1)}%` : "84.7%",
+      value: `${(data?.modelAccuracy * 100).toFixed(1)}%`,
       change: null,
       icon: "Target",
       color: "gold",
@@ -41,8 +62,8 @@ const MetricsCards = ({ data, loading }) => {
     },
     {
       title: "Training Jobs",
-      value: data?.trainingJobs ? `${data.trainingJobs.active} Active` : "1 Active",
-      change: data?.trainingJobs ? `${data.trainingJobs.completed} completed today` : "2 completed today",
+      value: `${data?.trainingJobs?.active} Active`,
+      change: `${data?.trainingJobs?.completed} completed today`,
       icon: "Zap",
       color: "purple"
     }
