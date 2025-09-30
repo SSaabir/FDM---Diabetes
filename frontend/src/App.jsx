@@ -18,6 +18,8 @@ import Header from './components/Header.jsx';
 import Footer from './components/Footer.jsx';
 import TermsAndConditions from './pages/TermsAndConditions.jsx';
 import ContactUs from "./pages/ContactUs.jsx";
+import ErrorBoundary from "./components/ErrorBoundary.jsx"; // ✅ added
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -28,46 +30,49 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Header />
-          <Routes>
-            <Route path="/contact" element={<ContactUs />} />
-            <Route path="/terms" element={<TermsAndConditions />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<SignUp />} />
-            <Route path="/faq" element={<FAQ />} />
-            <Route 
-              path="/assessment" 
-              element={
-                <ProtectedRoute>
-                  <Prediction />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/prediction" 
-              element={
-                <ProtectedRoute>
-                  <Prediction />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/chat" 
-              element={
-                <ProtectedRoute>
-                  <Chat />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/admin" 
-              element={
-                  <AdminDashboard />
-              } 
-            />
-            <Route path="/aboutus" element={<AboutUs />} />
-            <Route path="/" element={<Home />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          {/* Wrap all routes with ErrorBoundary */}
+          <ErrorBoundary>
+            <Routes>
+              <Route path="/contact" element={<ContactUs />} />
+              <Route path="/terms" element={<TermsAndConditions />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<SignUp />} />
+              <Route path="/faq" element={<FAQ />} />
+              <Route 
+                path="/assessment" 
+                element={
+                  <ProtectedRoute>
+                    <Prediction />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/prediction" 
+                element={
+                  <ProtectedRoute>
+                    <Prediction />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/chat" 
+                element={
+                  <ProtectedRoute>
+                    <Chat />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/admin" 
+                element={
+                    <AdminDashboard />
+                } 
+              />
+              <Route path="/aboutus" element={<AboutUs />} />
+              <Route path="/" element={<Home />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </ErrorBoundary>
           <Footer />
         </AuthProvider>
       </BrowserRouter>

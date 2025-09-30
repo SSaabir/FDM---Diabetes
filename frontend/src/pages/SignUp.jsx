@@ -7,7 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Heart, Loader2, Mail, Lock, User, Calendar, Phone, Eye, EyeOff } from 'lucide-react';
+import { Heart, Loader2, Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
 import * as Yup from 'yup';
 
 export const SignUp = () => {
@@ -32,6 +32,26 @@ export const SignUp = () => {
   if (isAuthenticated) {
     return <Navigate to="/" replace />;
   }
+
+  // ✅ Sanitization function
+  const sanitizeInput = (value, field) => {
+    if (typeof value !== 'string') return value;
+
+    let cleaned = value.trim();
+
+    if (field === 'email') {
+      cleaned = cleaned.replace(/[^a-zA-Z0-9@._-]/g, ''); // only email-safe chars
+    } else if (field === 'phone') {
+      cleaned = cleaned.replace(/[^0-9+]/g, ''); // keep digits & +
+    } else if (field === 'fullName') {
+      cleaned = cleaned.replace(/[^a-zA-Z ]/g, ''); // only letters + spaces
+    } else {
+      // default: strip dangerous chars
+      cleaned = cleaned.replace(/[<>]/g, '');
+    }
+
+    return cleaned;
+  };
 
   const signUpSchema = Yup.object().shape({
     fullName: Yup.string().required('Full name is required'),
@@ -91,8 +111,10 @@ export const SignUp = () => {
     setIsSubmitting(false);
   };
 
+  // ✅ Updated updater with sanitization
   const updateFormData = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    const safeValue = sanitizeInput(value, field);
+    setFormData(prev => ({ ...prev, [field]: safeValue }));
   };
 
   const getPasswordStrength = (password) => {
@@ -327,4 +349,3 @@ export const SignUp = () => {
 };
 
 export default SignUp;
-
