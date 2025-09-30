@@ -44,10 +44,33 @@ def sanitize_input(field: str, value: Any) -> Any:
     return value
 
 # -------------------------------
-# ✅ Predict diabetes risk
+# ✅ Public Predict diabetes risk (no auth required)
+# -------------------------------
+@router.post("/predict-public", response_model=PredictionResponse)
+@limiter.limit("30/minute")  # Increased from 10/minute
+async def predict_diabetes_risk_public(
+    request: Request,
+    prediction_request: PredictionRequest
+):
+    try:
+        user_input = prediction_request.dict()
+        for field in user_input:
+            user_input[field] = sanitize_input(field, user_input[field])
+        prediction_result = prediction_service.predict_diabetes_risk(user_input)
+        logger.info(f"Public prediction: {prediction_result['risk_level']} risk")
+        return PredictionResponse(**prediction_result)
+    except ValueError as e:
+        logger.error(f"Public prediction error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Unexpected error in public prediction: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error during prediction")
+
+# -------------------------------
+# ✅ Predict diabetes risk (authenticated)
 # -------------------------------
 @router.post("/predict", response_model=PredictionResponse)
-@limiter.limit("5/minute")
+@limiter.limit("20/minute")  # Increased from 5/minute
 async def predict_diabetes_risk(
     request: Request,
     prediction_request: PredictionRequest,
