@@ -629,6 +629,12 @@ def enhanced_preprocessing(df: pd.DataFrame, outdir: str, target_col: str = None
         print(f"     Scaling {len(final_numeric_cols)} numeric features...")
         scaler = StandardScaler()
         df_ml[final_numeric_cols] = scaler.fit_transform(df_ml[final_numeric_cols])
+        
+        # Save scaler for later use
+        import joblib
+        scaler_path = os.path.join(outdir, "feature_scaler.pkl")
+        joblib.dump(scaler, scaler_path)
+        print(f"     Scaler saved to: {scaler_path}")
     
     # 10. Feature selection (optional - select top K features for numeric columns only)
     if target_col and target_col in df_ml.columns and len(df_ml.columns) > 50:
@@ -702,8 +708,8 @@ def enhanced_preprocessing(df: pd.DataFrame, outdir: str, target_col: str = None
 def main():
     parser = argparse.ArgumentParser(description="Enhanced EDA + Preprocessing for Diabetes Dataset")
     parser.add_argument("--input", required=True, help="Path to raw CSV file")
-    parser.add_argument("--outdir", default="services/data/processed", help="Output directory for processed files")
-    parser.add_argument("--reports", default="services/data/reports", help="Output directory for EDA reports")
+    parser.add_argument("--outdir", default="data/processed_enhanced", help="Output directory for processed files")
+    parser.add_argument("--reports", default="data/reports_enhanced", help="Output directory for EDA reports")
     parser.add_argument("--target", default=None, help="Target column name (auto-detected if not provided)")
     parser.add_argument("--outliers", default="cap", choices=["cap", "remove", "none"], 
                        help="Outlier handling method")
