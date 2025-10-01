@@ -26,7 +26,7 @@ export const SignUp = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
 
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, signup } = useAuth();
   const { toast } = useToast();
 
   if (isAuthenticated) {
@@ -101,14 +101,49 @@ export const SignUp = () => {
     if (!isValid) return;
 
     setIsSubmitting(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    toast({
-      title: "Account created successfully!",
-      description: "Welcome to DiabetesPredict. Please sign in to continue.",
-    });
-
-    setIsSubmitting(false);
+    
+    try {
+      // Map frontend field names to backend field names
+      const signupData = {
+        full_name: formData.fullName,
+        email: formData.email,
+        password: formData.password,
+        phone: formData.phone || null,
+        date_of_birth: formData.dateOfBirth || null,
+      };
+      
+      // Call the signup function from AuthContext
+      await signup(signupData);
+      
+      toast({
+        title: "Account created successfully!",
+        description: "Welcome to DiabetesPredict. Please sign in to continue.",
+      });
+      
+      // Navigate to login page after successful signup
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 1500);
+      
+    } catch (error) {
+      console.error('Signup error:', error);
+      
+      let errorMessage = 'Failed to create account. Please try again.';
+      
+      if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      toast({
+        title: "Signup Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // ✅ Updated updater with sanitization
@@ -274,6 +309,41 @@ export const SignUp = () => {
                   </button>
                 </div>
                 {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword}</p>}
+              </div>
+
+              {/* Phone Number */}
+              <div className="space-y-2">
+                <Label htmlFor="phone" className="flex items-center space-x-2 text-secondary">
+                  <span>📱</span>
+                  <span>Phone Number (Optional)</span>
+                </Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => updateFormData('phone', e.target.value)}
+                  onBlur={() => handleBlur('phone')}
+                  placeholder="Enter your phone number"
+                  className={errors.phone ? 'border-destructive' : ''}
+                />
+                {errors.phone && <p className="text-sm text-destructive">{errors.phone}</p>}
+              </div>
+
+              {/* Date of Birth */}
+              <div className="space-y-2">
+                <Label htmlFor="dateOfBirth" className="flex items-center space-x-2 text-secondary">
+                  <span>🎂</span>
+                  <span>Date of Birth (Optional)</span>
+                </Label>
+                <Input
+                  id="dateOfBirth"
+                  type="date"
+                  value={formData.dateOfBirth}
+                  onChange={(e) => updateFormData('dateOfBirth', e.target.value)}
+                  onBlur={() => handleBlur('dateOfBirth')}
+                  className={errors.dateOfBirth ? 'border-destructive' : ''}
+                />
+                {errors.dateOfBirth && <p className="text-sm text-destructive">{errors.dateOfBirth}</p>}
               </div>
 
               {/* Terms + Privacy */}
