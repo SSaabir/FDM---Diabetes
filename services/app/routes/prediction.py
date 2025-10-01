@@ -2,10 +2,12 @@
 Prediction API Routes
 Handles diabetes risk prediction requests
 """
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from sqlalchemy.orm import Session
-from typing import Dict, Any
+from typing import Any
 import logging
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from ..database import get_db
 from ..services.prediction import prediction_service
@@ -16,42 +18,85 @@ from ..models.user import User
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+# Create limiter instance
+limiter = Limiter(key_func=get_remote_address)
+
+# -------------------------------
+# ✅ Sanitization helper
+# -------------------------------
+def sanitize_input(field: str, value: Any) -> Any:
+    if isinstance(value, str):
+        value = value.strip().replace("<", "").replace(">", "")
+        if field in ['age', 'height', 'weight', 'bloodPressure', 'cholesterol', 'hbA1c_level', 'blood_glucose_level']:
+            value = ''.join(c for c in value if c.isdigit() or c == '.')
+            try:
+                value = float(value)
+            except ValueError:
+                value = 0.0
+        if field == 'gender':
+            value = value.lower()
+            if value not in ['male', 'female', 'other']:
+                value = ''
+        if field in ['smoking', 'physicalActivity', 'familyHistory']:
+            value = value.lower()
+    if isinstance(value, (int, float)):
+        return value
+    return value
+
+# -------------------------------
+# ✅ Public Predict diabetes risk (no auth required)
+# -------------------------------
+@router.post("/predict-public", response_model=PredictionResponse)
+@limiter.limit("30/minute")  # Increased from 10/minute
+async def predict_diabetes_risk_public(
+    request: Request,
+    prediction_request: PredictionRequest
+):
+    try:
+        user_input = prediction_request.dict()
+        for field in user_input:
+            user_input[field] = sanitize_input(field, user_input[field])
+        prediction_result = prediction_service.predict_diabetes_risk(user_input)
+        logger.info(f"Public prediction: {prediction_result['risk_level']} risk")
+        return PredictionResponse(**prediction_result)
+    except ValueError as e:
+        logger.error(f"Public prediction error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Unexpected error in public prediction: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error during prediction")
+
+# -------------------------------
+# ✅ Predict diabetes risk (authenticated)
+# -------------------------------
 @router.post("/predict", response_model=PredictionResponse)
+@limiter.limit("20/minute")  # Increased from 5/minute
 async def predict_diabetes_risk(
+    request: Request,
     prediction_request: PredictionRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Predict diabetes risk based on user health data
-    """
     try:
-        # Convert request to dictionary
         user_input = prediction_request.dict()
-        
-        # Get prediction from ML service
+        for field in user_input:
+            user_input[field] = sanitize_input(field, user_input[field])
         prediction_result = prediction_service.predict_diabetes_risk(user_input)
-        
-        # Log prediction for monitoring (without sensitive data)
-        logger.info(f"Prediction generated for user {current_user.id}: {prediction_result['risk_level']} risk")
-        
-        # TODO: Optionally save prediction to database for history
-        
+        logger.info(f"Prediction for user {current_user.id}: {prediction_result['risk_level']} risk")
         return PredictionResponse(**prediction_result)
-        
     except ValueError as e:
         logger.error(f"Prediction error for user {current_user.id}: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
-    
     except Exception as e:
         logger.error(f"Unexpected error in prediction for user {current_user.id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error during prediction")
 
+# -------------------------------
+# ✅ Get model information
+# -------------------------------
 @router.get("/model-info")
-async def get_model_info():
-    """
-    Get information about the loaded ML models (public endpoint)
-    """
+@limiter.limit("5/minute")
+async def get_model_info(request: Request):
     try:
         model_info = {
             "rf_model_loaded": prediction_service.rf_model is not None,
@@ -62,56 +107,46 @@ async def get_model_info():
             "version": "1.0"
         }
         return model_info
-    
     except Exception as e:
-        logger.error(f"Error getting model info: {str(e)}")
+        logger.error(f"Error retrieving model info: {str(e)}")
         raise HTTPException(status_code=500, detail="Error retrieving model information")
 
+# -------------------------------
+# ✅ Validate input only
+# -------------------------------
 @router.post("/validate-input")
+@limiter.limit("5/minute")
 async def validate_prediction_input(
+    request: Request,
     prediction_request: PredictionRequest,
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Validate prediction input without running the actual prediction
-    """
     try:
-        # Convert request to dictionary
         user_input = prediction_request.dict()
-        
-        # Validate input ranges
+        for field in user_input:
+            user_input[field] = sanitize_input(field, user_input[field])
         validation_errors = []
-        
-        # Age validation
         age = user_input.get('age')
         if age and (age < 18 or age > 120):
             validation_errors.append("Age must be between 18 and 120")
-        
-        # Height validation (cm)
         height = user_input.get('height')
         if height and (height < 100 or height > 250):
             validation_errors.append("Height must be between 100 and 250 cm")
-        
-        # Weight validation (kg)
         weight = user_input.get('weight')
         if weight and (weight < 30 or weight > 300):
             validation_errors.append("Weight must be between 30 and 300 kg")
-        
-        # Calculate BMI if height and weight provided
         bmi = None
         if height and weight:
             height_m = height / 100
             bmi = weight / (height_m ** 2)
             if bmi < 15 or bmi > 50:
                 validation_errors.append("Calculated BMI is outside normal range (15-50)")
-        
         return {
             "valid": len(validation_errors) == 0,
             "errors": validation_errors,
             "calculated_bmi": round(bmi, 1) if bmi else None,
             "warnings": []
         }
-        
     except Exception as e:
         logger.error(f"Error validating input: {str(e)}")
         raise HTTPException(status_code=500, detail="Error validating input")

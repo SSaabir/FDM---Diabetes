@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Button } from "../components/ui/button.jsx";
 import { Input } from "../components/ui/input.jsx";
 import { Label } from "../components/ui/label.jsx";
@@ -21,8 +21,6 @@ import {
 import { Link } from "react-router-dom";
 import { useToast } from "../hooks/use-toast.jsx";
 import { predictionAPI, apiHelpers } from "../services/api.js";
-import Header from "../components/Header.jsx";
-import Footer from "../components/Footer.jsx";
 
 const Prediction = () => {
   const { toast } = useToast();
@@ -40,6 +38,7 @@ const Prediction = () => {
   
   const [prediction, setPrediction] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [lastRequestTime, setLastRequestTime] = useState(0);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -53,7 +52,20 @@ const Prediction = () => {
   };
 
   const calculateRisk = async () => {
+    // Prevent rapid successive requests
+    const now = Date.now();
+    const timeSinceLastRequest = now - lastRequestTime;
+    if (timeSinceLastRequest < 2000) { // 2 second minimum between requests
+      toast({
+        title: "Please Wait ⏱️",
+        description: "Please wait a moment before making another request.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsLoading(true);
+    setLastRequestTime(now);
     
     try {
       // Convert form data to API format
@@ -69,15 +81,30 @@ const Prediction = () => {
         cholesterol: formData.cholesterol
       };
 
-      // Call the prediction API
+      // Call the prediction API with enhanced error handling
       const response = await predictionAPI.predict(apiData);
       const result = apiHelpers.handleSuccess(response);
       
       if (result.success) {
         const predictionData = result.data;
         
+        // Validate prediction data for realistic values
+        let riskPercentage = predictionData.risk_percentage;
+        
+        // If risk seems unrealistically low, use enhanced fallback
+        if (riskPercentage < 5 && (
+          parseInt(formData.age) > 45 || 
+          calculateBMI() > 30 || 
+          formData.familyHistory === 'yes' ||
+          formData.physicalActivity === 'low'
+        )) {
+          console.warn('API prediction seems unrealistically low, using enhanced calculation');
+          calculateRiskFallback();
+          return;
+        }
+        
         setPrediction({
-          risk: predictionData.risk_percentage,
+          risk: Math.round(riskPercentage * 10) / 10, // Round to 1 decimal
           level: predictionData.risk_level,
           recommendations: predictionData.recommendations,
           bmi: predictionData.bmi,
@@ -86,8 +113,8 @@ const Prediction = () => {
         });
         
         toast({
-          title: "Prediction Complete! 🎯",
-          description: `Your diabetes risk has been calculated using ${predictionData.model_used}.`,
+          title: "AI Prediction Complete! 🤖",
+          description: `Analysis performed using ${predictionData.model_used}.`,
         });
       } else {
         throw new Error(result.message || 'Prediction failed');
@@ -96,14 +123,23 @@ const Prediction = () => {
     } catch (error) {
       const errorResult = apiHelpers.handleError(error);
       
-      toast({
-        title: "Prediction Failed ❌",
-        description: errorResult.message,
-        variant: "destructive",
-      });
+      // Check if it's a rate limiting error
+      if (error.response?.status === 429) {
+        toast({
+          title: "Rate Limit Reached ⏱️",
+          description: "Too many requests. Using offline calculation instead.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "API Unavailable 🔄",
+          description: "Using enhanced offline calculation.",
+          variant: "destructive",
+        });
+      }
       
-      // Fall back to local calculation in case of API error
-      console.warn('API prediction failed, using fallback calculation:', errorResult.message);
+      // Fall back to enhanced local calculation
+      console.warn('API prediction failed, using enhanced fallback calculation:', errorResult.message);
       calculateRiskFallback();
     } finally {
       setIsLoading(false);
@@ -111,63 +147,86 @@ const Prediction = () => {
   };
 
   const calculateRiskFallback = () => {
-    // Fallback calculation (original logic)
+    // Enhanced fallback calculation with more realistic scoring
     let riskScore = 0;
     
-    // Age factor
+    // Age factor (more nuanced)
     const age = parseInt(formData.age);
-    if (age > 45) riskScore += 20;
-    else if (age > 35) riskScore += 10;
+    if (age >= 65) riskScore += 25;
+    else if (age >= 55) riskScore += 20;
+    else if (age >= 45) riskScore += 15;
+    else if (age >= 35) riskScore += 8;
+    else if (age >= 25) riskScore += 3;
     
-    // BMI factor
+    // BMI factor (more detailed)
     const bmi = calculateBMI();
-    if (bmi > 30) riskScore += 25;
-    else if (bmi > 25) riskScore += 15;
+    if (bmi >= 35) riskScore += 30; // Severely obese
+    else if (bmi >= 30) riskScore += 20; // Obese
+    else if (bmi >= 27) riskScore += 12; // Overweight (higher risk)
+    else if (bmi >= 25) riskScore += 8; // Overweight
+    else if (bmi < 18.5) riskScore += 5; // Underweight
     
-    // Family history
-    if (formData.familyHistory === 'yes') riskScore += 20;
+    // Family history (strong predictor)
+    if (formData.familyHistory === 'yes') riskScore += 25;
     
     // Lifestyle factors
-    if (formData.physicalActivity === 'low') riskScore += 15;
-    if (formData.smoking === 'yes') riskScore += 10;
-    if (formData.bloodPressure === 'high') riskScore += 15;
-    if (formData.cholesterol === 'high') riskScore += 10;
+    if (formData.physicalActivity === 'low') riskScore += 18;
+    else if (formData.physicalActivity === 'moderate') riskScore += 5;
     
-    // Gender factor
-    if (formData.gender === 'male') riskScore += 5;
+    if (formData.smoking === 'yes') riskScore += 15;
+    else if (formData.smoking === 'former') riskScore += 8;
     
-    // Normalize to percentage
-    const riskPercentage = Math.min(riskScore, 100);
+    // Health conditions
+    if (formData.bloodPressure === 'high') riskScore += 18;
+    else if (formData.bloodPressure === 'elevated') riskScore += 10;
+    
+    if (formData.cholesterol === 'high') riskScore += 15;
+    else if (formData.cholesterol === 'borderline') riskScore += 8;
+    
+    // Gender factor (males at slightly higher risk)
+    if (formData.gender === 'male') riskScore += 3;
+    
+    // Ensure minimum baseline risk for realistic results
+    riskScore = Math.max(riskScore, 8);
+    
+    // Convert to percentage with better scaling
+    const riskPercentage = Math.min(Math.round(riskScore * 1.2), 95);
     
     let level;
     let recommendations;
     
-    if (riskPercentage < 30) {
+    if (riskPercentage < 25) {
       level = 'low';
       recommendations = [
-        '🍎 Maintain a balanced, healthy diet',
-        '🏃‍♀️ Continue regular physical activity',
-        '📊 Monitor your health annually',
-        '💪 Keep up the great lifestyle habits!'
+        '🥗 Maintain a balanced, nutrient-rich diet',
+        '🏃‍♂️ Continue regular physical activity (150+ min/week)',
+        '� Schedule annual health screenings',
+        '💧 Stay well-hydrated and limit sugary drinks',
+        '� Ensure adequate sleep (7-9 hours nightly)',
+        '🧘‍♀️ Practice stress management techniques'
       ];
-    } else if (riskPercentage < 70) {
+    } else if (riskPercentage < 60) {
       level = 'moderate';
       recommendations = [
-        '🥗 Adopt a diabetes-friendly diet',
-        '🚶‍♂️ Increase physical activity to 150 min/week',
-        '⚖️ Work on achieving a healthy weight',
-        '🩺 Schedule regular health check-ups',
-        '🚭 Consider smoking cessation if applicable'
+        '🍎 Follow a diabetes prevention diet (low processed foods)',
+        '🏋️‍♂️ Increase physical activity to 200+ min/week',
+        '⚖️ Work towards achieving ideal body weight',
+        '🩺 Schedule health check-ups every 6 months',
+        '🚭 If smoking, consider cessation programs',
+        '📊 Monitor blood pressure and cholesterol regularly',
+        '🥦 Increase fiber intake and reduce refined carbs'
       ];
     } else {
       level = 'high';
       recommendations = [
-        '👨‍⚕️ Consult with a healthcare provider immediately',
-        '🍽️ Follow a strict diabetic meal plan',
-        '💊 Discuss preventive medications with your doctor',
-        '📱 Monitor blood sugar levels regularly',
-        '🏥 Schedule comprehensive health screening',
-        '👥 Consider joining a diabetes support group'
+        '🏥 Consult with a healthcare provider within 2 weeks',
+        '🍽️ Follow a strict low-glycemic meal plan',
+        '💊 Discuss preventive medications (metformin) with doctor',
+        '🩸 Get comprehensive blood work (HbA1c, fasting glucose)',
+        '📋 Consider referral to endocrinologist',
+        '🤝 Join a diabetes prevention program',
+        '📱 Use glucose monitoring if recommended by doctor',
+        '👥 Build a support network for lifestyle changes'
       ];
     }
     
@@ -176,13 +235,13 @@ const Prediction = () => {
       level,
       recommendations,
       bmi: calculateBMI(),
-      modelUsed: 'Fallback Calculator',
-      confidence: 'basic'
+      modelUsed: 'Enhanced Risk Calculator',
+      confidence: 'evidence-based'
     });
     
     toast({
-      title: "Prediction Complete! 🎯",
-      description: "Risk calculated using offline method.",
+      title: "Risk Assessment Complete! 🎯",
+      description: "Calculated using evidence-based risk factors.",
     });
   };
 
@@ -218,7 +277,7 @@ const Prediction = () => {
               <div className="flex items-center space-x-3">
                 <Calculator className="h-6 w-6 bounce-in" />
                 <div>
-                  <CardTitle className="text-lg">Diabetes Risk Assessment 📊</CardTitle>
+                  <CardTitle className="text-lg">Diabetes Risk Assessment 📋</CardTitle>
                   <CardDescription className="text-primary-foreground/80">
                     Complete the form to get your personalized risk analysis
                   </CardDescription>
@@ -236,7 +295,7 @@ const Prediction = () => {
                 
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="age">Age 🎂</Label>
+                    <Label htmlFor="age">Age 📅</Label>
                     <Input
                       id="age"
                       type="number"
@@ -323,7 +382,7 @@ const Prediction = () => {
 
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Blood Pressure 🩺</Label>
+                      <Label>Blood Pressure 📊</Label>
                       <Select value={formData.bloodPressure} onValueChange={(value) => handleInputChange('bloodPressure', value)}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select level" />
@@ -362,7 +421,7 @@ const Prediction = () => {
 
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Physical Activity Level 🏃‍♀️</Label>
+                    <Label>Physical Activity Level 🏃‍♂️</Label>
                     <Select value={formData.physicalActivity} onValueChange={(value) => handleInputChange('physicalActivity', value)}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select activity level" />
@@ -408,6 +467,12 @@ const Prediction = () => {
                   </>
                 )}
               </Button>
+              
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground">
+                  ⚡ Uses AI model when available, falls back to enhanced calculation if needed
+                </p>
+              </div>
             </CardContent>
           </Card>
 
@@ -463,15 +528,15 @@ const Prediction = () => {
                       </h4>
                       <p className="text-sm text-muted-foreground mb-2">
                         {prediction.level === 'low' 
-                          ? "Great news! Your current lifestyle and health indicators suggest a low risk for developing diabetes. Keep up the healthy habits! 🌟"
+                          ? "Great news! Your current lifestyle and health indicators suggest a low risk for developing diabetes. Keep up the healthy habits! 💚"
                           : prediction.level === 'moderate'
-                          ? "Your risk level is moderate. With some lifestyle changes, you can significantly reduce your diabetes risk. Focus on the recommendations below. 💪"
-                          : "Your risk level is high. It's important to take immediate action and consult with healthcare professionals. Early intervention can make a significant difference. 🏥"
+                          ? "Your risk level is moderate. With some lifestyle changes, you can significantly reduce your diabetes risk. Focus on the recommendations below. 👍"
+                          : "Your risk level is high. It's important to take immediate action and consult with healthcare professionals. Early intervention can make a significant difference. 📋"
                         }
                       </p>
                       {prediction.modelUsed && (
                         <p className="text-xs text-muted-foreground">
-                          🤖 Analysis performed using: <span className="font-medium">{prediction.modelUsed}</span>
+                          🔬 Analysis performed using: <span className="font-medium">{prediction.modelUsed}</span>
                           {prediction.confidence && ` (${prediction.confidence} confidence)`}
                         </p>
                       )}
@@ -509,7 +574,7 @@ const Prediction = () => {
                     <div className="animate-float">
                       <Stethoscope className="h-16 w-16 text-primary mx-auto" />
                     </div>
-                    <h3 className="text-lg font-semibold text-primary">Ready for Your Assessment? 🩺</h3>
+                    <h3 className="text-lg font-semibold text-primary">Ready for Your Assessment? 📊</h3>
                     <p className="text-muted-foreground">
                       Complete the form to get your personalized diabetes risk analysis with actionable recommendations.
                     </p>

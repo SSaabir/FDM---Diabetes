@@ -1,11 +1,19 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from .config import settings
 from .routes.auth import router as auth_router
 from .routes.prediction import router as prediction_router
 from .routes.chat import router as chat_router
 from .routes.metrics import router as metrics_router
+
+# Create limiter
+limiter = Limiter(key_func=get_remote_address)
 
 def create_application() -> FastAPI:
     """Create and configure the FastAPI application."""
@@ -14,6 +22,17 @@ def create_application() -> FastAPI:
         description="Backend API for Diabetes Prediction System",
         version="1.0.0",
     )
+
+    # Attach limiter to app state
+    app.state.limiter = limiter
+
+    # Handle rate limit errors globally
+    @app.exception_handler(RateLimitExceeded)
+    async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Too Many Requests. Slow down!"}
+        )
 
     # Set up CORS
     app.add_middleware(
