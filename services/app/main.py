@@ -10,7 +10,6 @@ from .config import settings
 from .routes.auth import router as auth_router
 from .routes.prediction import router as prediction_router
 from .routes.chat import router as chat_router
-from .routes.metrics import router as metrics_router
 
 # Create limiter
 limiter = Limiter(key_func=get_remote_address)
@@ -47,7 +46,6 @@ def create_application() -> FastAPI:
     app.include_router(auth_router, prefix="/auth", tags=["authentication"])
     app.include_router(prediction_router, prefix="/api", tags=["prediction"])
     app.include_router(chat_router, prefix="/api", tags=["chat"])
-    app.include_router(metrics_router, prefix="/api", tags=["metrics"])
 
     @app.get("/")
     async def root():
