@@ -10,6 +10,7 @@ import SignUp from "./pages/SignUp";
 import FAQ from "./pages/FAQ";
 import NotFound from "./pages/NotFound";
 import AdminDashboard from "./admin/pages/AdminDashboard";
+import AddAdminForm from "./admin/pages/AddAdminForm";
 import AboutUs from './pages/AboutUs.jsx';
 import Home from './pages/Home.jsx';
 import Chat from './pages/Chat.jsx';
@@ -37,6 +38,7 @@ const App = () => (
             <Route path="/signup" element={<SignUp />} />
             <Route path="/faq" element={<FAQ />} />
             <Route path="/admindashboard" element={<AdminDashboard />} />
+            <Route path="/add-admin" element={<AddAdminForm />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route 
               path="/assessment" 
