@@ -4,7 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { ProtectedRoute, AdminOnlyRoute, SuperAdminOnlyRoute } from "@/components/ProtectedRoute";
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 import FAQ from "./pages/FAQ";
@@ -15,6 +15,8 @@ import AboutUs from './pages/AboutUs.jsx';
 import Home from './pages/Home.jsx';
 import Chat from './pages/Chat.jsx';
 import Prediction from './pages/Prediction.jsx';
+import Profile from './pages/Profile.jsx';
+import ProfileEdit from './pages/ProfileEdit.jsx';
 import Header from './components/Header.jsx';
 import Footer from './components/Footer.jsx';
 import TermsAndConditions from './pages/TermsAndConditions.jsx';
@@ -37,9 +39,66 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<SignUp />} />
             <Route path="/faq" element={<FAQ />} />
-            <Route path="/admindashboard" element={<AdminDashboard />} />
-            <Route path="/add-admin" element={<AddAdminForm />} />
-            <Route path="/dashboard" element={<Dashboard />} />
+            
+            {/* Admin Routes - Properly Protected */}
+            <Route 
+              path="/admindashboard" 
+              element={
+                <AdminOnlyRoute>
+                  <AdminDashboard />
+                </AdminOnlyRoute>
+              } 
+            />
+            <Route 
+              path="/admin/dashboard" 
+              element={
+                <AdminOnlyRoute>
+                  <AdminDashboard />
+                </AdminOnlyRoute>
+              } 
+            />
+            <Route 
+              path="/admin/add-admin" 
+              element={
+                <SuperAdminOnlyRoute>
+                  <AddAdminForm />
+                </SuperAdminOnlyRoute>
+              } 
+            />
+            <Route 
+              path="/admin" 
+              element={
+                <AdminOnlyRoute>
+                  <AdminDashboard />
+                </AdminOnlyRoute>
+              } 
+            />
+            
+            {/* User Routes - Protected */}
+            <Route 
+              path="/dashboard" 
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/profile" 
+              element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/profile/edit" 
+              element={
+                <ProtectedRoute>
+                  <ProfileEdit />
+                </ProtectedRoute>
+              } 
+            />
             <Route 
               path="/assessment" 
               element={
@@ -51,9 +110,9 @@ const App = () => (
             <Route 
               path="/prediction" 
               element={
-                <ProtectedRoute>
+               
                   <Prediction />
-                </ProtectedRoute>
+               
               } 
             />
             <Route 
@@ -64,12 +123,8 @@ const App = () => (
                 </ProtectedRoute>
               } 
             />
-            <Route 
-              path="/admin" 
-              element={
-                  <AdminDashboard />
-              } 
-            />
+            
+            {/* Public Routes */}
             <Route path="/aboutus" element={<AboutUs />} />
             <Route path="/" element={<Home />} />
             <Route path="*" element={<NotFound />} />

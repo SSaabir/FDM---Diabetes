@@ -3,6 +3,21 @@ import React, { useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthContext from './AuthConstants';
 import { authAPI } from '../services/api';
+import { 
+  storeAuthData, 
+  getAuthData, 
+  clearAuthData, 
+  handleLoginSuccess,
+  refreshAuthState,
+  getUserType,
+  isAdmin,
+  isSuperAdmin,
+  hasPermission,
+  getUserInfo,
+  getDisplayName,
+  getRoleDisplayText,
+  isTokenExpired
+} from '../utils/auth';
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -14,39 +29,74 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [userType, setUserType] = useState(null);
+  const [userInfo, setUserInfo] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check for stored token on app startup
-    const token = localStorage.getItem('diabetesPredict_token');
-    if (token) {
-      // Verify token by calling getCurrentUser
-      authAPI.getCurrentUser()
-        .then(userData => {
-          setUser(userData);
-        })
-        .catch(() => {
-          // Token invalid, remove it
-          localStorage.removeItem('diabetesPredict_token');
-        })
-        .finally(() => {
-          setIsLoading(false);
-        });
-    } else {
-      setIsLoading(false);
-    }
+    // Check for stored authentication data on app startup
+    const initializeAuth = async () => {
+      setIsLoading(true);
+      
+      try {
+        // Try to refresh authentication state
+        const authData = await refreshAuthState(authAPI);
+        
+        if (authData) {
+          setUser(authData.userInfo);
+          setUserType(authData.userType);
+          setUserInfo(authData.userInfo);
+        } else {
+          // No valid authentication
+          setUser(null);
+          setUserType(null);
+          setUserInfo(null);
+        }
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+        // Don't clear data immediately on network errors, only on auth errors
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          clearAuthData();
+          setUser(null);
+          setUserType(null);
+          setUserInfo(null);
+        } else {
+          // For network errors, try to use cached data
+          const cachedData = getAuthData();
+          if (cachedData && !isTokenExpired()) {
+            setUser(cachedData.userInfo);
+            setUserType(cachedData.userType);
+            setUserInfo(cachedData.userInfo);
+          } else {
+            clearAuthData();
+            setUser(null);
+            setUserType(null);
+            setUserInfo(null);
+          }
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeAuth();
   }, []);
 
   const login = async (email, password) => {
     setIsLoading(true);
     try {
       const response = await authAPI.login(email, password);
-      // Store the token
-      localStorage.setItem('diabetesPredict_token', response.data.access_token);
-      // Get user data
-      const userData = await authAPI.getCurrentUser();
-      setUser(userData);
+      const loginData = response.data;
+      
+      // Handle the unified login response
+      const authData = handleLoginSuccess(loginData, navigate);
+      
+      // Update state
+      setUser(authData.userInfo);
+      setUserType(authData.userType);
+      setUserInfo(authData.userInfo);
+      
       setIsLoading(false);
       return true;
     } catch (error) {
@@ -68,18 +118,68 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    // Clear all authentication data
+    clearAuthData();
+    
+    // Reset state
     setUser(null);
-    localStorage.removeItem('diabetesPredict_token');
+    setUserType(null);
+    setUserInfo(null);
+    
+    // Navigate to login
     navigate('/login');
   };
 
+  const updateUser = (updatedUserData) => {
+    // Update the user state with new data
+    const newUserData = { ...user, ...updatedUserData };
+    setUser(newUserData);
+    setUserInfo(newUserData);
+    
+    // Update stored data as well
+    const authData = getAuthData();
+    if (authData) {
+      const updatedAuthData = {
+        ...authData,
+        userInfo: newUserData
+      };
+      storeAuthData(updatedAuthData);
+    }
+  };
+
+  // Helper functions for checking user permissions
+  const checkPermission = (requiredRole) => {
+    return hasPermission(requiredRole);
+  };
+
   const value = {
+    // User state
     user,
+    userType,
+    userInfo,
     isAuthenticated: !!user,
+    
+    // Authentication functions
     login,
     logout,
     signup,
+    updateUser,
     isLoading,
+    
+    // User type checks
+    isAdmin: isAdmin(),
+    isSuperAdmin: isSuperAdmin(),
+    
+    // Permission checking
+    hasPermission: checkPermission,
+    
+    // User display helpers
+    displayName: getDisplayName(userInfo),
+    roleDisplayText: getRoleDisplayText(userType, userInfo),
+    
+    // Utility functions
+    getUserType: () => getUserType(),
+    getUserInfo: () => getUserInfo(),
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

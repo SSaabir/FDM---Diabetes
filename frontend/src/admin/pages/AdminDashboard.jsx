@@ -7,13 +7,36 @@ import PredictionsSection from '../components/dashboard/PredictionsSection';
 import SystemMonitoringSection from '../components/dashboard/SystemMonitoringSection';
 import useAdminData from '../hooks/useAdminData';
 import useRealTimeUpdates from '../hooks/useRealTimeUpdates';
-import { Bell, LogOut, User, Wifi, WifiOff, UserPlus } from 'lucide-react';
+import { Bell, LogOut, User, Wifi, WifiOff, UserPlus, Shield, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 const AdminDashboard = () => {
-  const { data, loading, error, refreshData } = useAdminData();
+  const { 
+    data, 
+    loading, 
+    error, 
+    refreshData 
+  } = useAdminData();
+  
   const { isConnected, lastUpdate } = useRealTimeUpdates();
   const navigate = useNavigate();
+  
+  const { 
+    userInfo, 
+    userType, 
+    logout, 
+    displayName, 
+    roleDisplayText, 
+    isSuperAdmin
+  } = useAuth();
+
+  // Get role-specific capabilities
+  const canAddAdmin = isSuperAdmin;
+  const userRole = userInfo?.role || 'admin';
 
   return (
     <div className="min-h-screen bg-[#F3F3E0] p-6">
@@ -21,8 +44,13 @@ const AdminDashboard = () => {
       <header className="bg-white rounded-lg shadow-sm p-6 mb-8">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-[#183B4E]">Admin Dashboard - Diabetes Prediction</h1>
-            <p className="text-[#374151] mt-1">Comprehensive ML model and user management</p>
+            <div className="flex items-center space-x-3 mb-2">
+              <h1 className="text-3xl font-bold text-[#183B4E]">Admin Dashboard</h1>
+              <Badge variant={userRole === 'superadmin' ? 'default' : 'secondary'}>
+                {roleDisplayText}
+              </Badge>
+            </div>
+            <p className="text-[#374151] mt-1">Diabetes Prediction System Management</p>
             <div className="flex items-center mt-2 text-sm">
               {isConnected ? (
                 <Wifi size={14} className="text-green-500 mr-1" />
@@ -37,6 +65,7 @@ const AdminDashboard = () => {
               </span>
             </div>
           </div>
+          
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
@@ -44,40 +73,89 @@ const AdminDashboard = () => {
                 {isConnected ? 'System Healthy' : 'Connection Issues'}
               </span>
             </div>
+            
             <button
               onClick={refreshData}
               disabled={loading}
               className="p-2 text-[#27548A] hover:bg-[#F3F3E0] rounded-lg disabled:opacity-50"
+              title="Refresh Data"
             >
               <Bell size={20} />
             </button>
+            
+            {/* User Info */}
             <div className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-[#27548A] rounded-full flex items-center justify-center">
-                <User size={16} className="text-white" />
+                {userRole === 'superadmin' ? (
+                  <Shield size={16} className="text-white" />
+                ) : (
+                  <User size={16} className="text-white" />
+                )}
               </div>
-              <span className="text-[#183B4E] font-medium">Admin User</span>
+              <div className="text-right">
+                <div className="text-[#183B4E] font-medium">{displayName}</div>
+                <div className="text-xs text-gray-500">{userInfo?.email}</div>
+              </div>
             </div>
+            
+            {/* Action Buttons */}
             <div className="flex flex-col space-y-2">
-              <button className="px-4 py-2 bg-[#27548A] text-white rounded-lg hover:bg-[#183B4E] transition-colors">
-                <LogOut size={16} className="inline mr-2" />
-                Logout
-              </button>
-              <button
-                onClick={() => navigate('/add-admin')}
-                className="px-4 py-2 bg-[#27548A] text-white rounded-lg hover:bg-[#183B4E] transition-colors"
+              <Button
+                onClick={logout}
+                variant="outline"
+                size="sm"
+                className="border-[#27548A] text-[#27548A] hover:bg-[#27548A] hover:text-white"
               >
-                <UserPlus size={16} className="inline mr-2" />
-                Add Admin
-              </button>
+                <LogOut size={16} className="mr-2" />
+                Logout
+              </Button>
+              
+              {canAddAdmin && (
+                <Button
+                  onClick={() => navigate('/admin/add-admin')}
+                  size="sm"
+                  className="bg-[#27548A] hover:bg-[#183B4E] text-white"
+                >
+                  <UserPlus size={16} className="mr-2" />
+                  Add Admin
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        {/* Role-specific info */}
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center space-x-4">
+              <span className="text-gray-600">
+                Role: <span className="font-medium text-[#183B4E]">{roleDisplayText}</span>
+              </span>
+              {userInfo?.position && (
+                <span className="text-gray-600">
+                  Position: <span className="font-medium text-[#183B4E]">{userInfo.position}</span>
+                </span>
+              )}
+            </div>
+            <div className="flex items-center space-x-2 text-gray-600">
+              <span>Access Level:</span>
+              <Badge variant={userRole === 'superadmin' ? 'default' : 'secondary'}>
+                {userRole === 'superadmin' ? 'Full Access' : 'Limited Access'}
+              </Badge>
             </div>
           </div>
         </div>
       </header>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-8">
-          <p className="text-red-800">Error loading dashboard data: {error}</p>
-        </div>
+        <Card className="mb-8 border-red-200 bg-red-50">
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <AlertCircle className="h-5 w-5 text-red-600" />
+              <p className="text-red-800">Error loading dashboard data: {error}</p>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Metrics Cards */}

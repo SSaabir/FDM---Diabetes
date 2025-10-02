@@ -1,6 +1,14 @@
 import { Button } from "./ui/button.jsx";
 import { Badge } from "./ui/badge.jsx";
-import { Stethoscope, Sparkles, User, LogOut } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar.jsx";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu.jsx";
+import { Stethoscope, Sparkles, User, LogOut, Settings, UserCircle, ChevronDown } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -33,19 +41,49 @@ const Header = () => {
           </div>
 
           {isAuthenticated ? (
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-muted-foreground">
-                Welcome, {user?.name || user?.email}
-              </span>
-              <Button 
-                variant="outline" 
-                onClick={logout}
-                className="text-foreground hover:text-primary"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
-              </Button>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="flex items-center space-x-2 h-auto p-2">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={user?.avatar} alt={user?.full_name || user?.name || user?.email} />
+                    <AvatarFallback>
+                      {(user?.full_name || user?.name || user?.email)?.charAt(0)?.toUpperCase() || 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col items-start">
+                    <span className="text-sm font-medium">
+                      {user?.full_name || user?.name || user?.email}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {user?.role || 'User'}
+                    </span>
+                  </div>
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem asChild>
+                  <Link to="/profile" className="flex items-center w-full">
+                    <UserCircle className="h-4 w-4 mr-2" />
+                    View Profile
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/profile/edit" className="flex items-center w-full">
+                    <Settings className="h-4 w-4 mr-2" />
+                    Edit Profile
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  onClick={logout}
+                  className="text-red-600 focus:text-red-600 cursor-pointer"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : (
             <Link to="/login">
               <Button className="gradient-medical">

@@ -6,16 +6,33 @@ class UserBase(BaseModel):
     email: EmailStr
     full_name: str
     phone: Optional[str] = None
-    date_of_birth: Optional[date] = None
+    date_of_birth: Optional[str] = None  # Changed to string to match MongoDB model
+    address: Optional[str] = None
+    bio: Optional[str] = None
+    avatar: Optional[str] = None
 
 class UserCreate(UserBase):
     password: str
 
-class UserUpdate(UserBase):
-    pass
+class UserUpdate(BaseModel):
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    address: Optional[str] = None
+    bio: Optional[str] = None
+    avatar: Optional[str] = None
+
+class UserProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+    date_of_birth: Optional[str] = None
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
 
 class User(UserBase):
-    id: int
+    id: str  # MongoDB uses string IDs
     created_at: datetime
     updated_at: datetime
 

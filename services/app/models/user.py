@@ -1,16 +1,25 @@
-from sqlalchemy import Column, Integer, String, DateTime, Date
-from sqlalchemy.sql import func
+from datetime import datetime, date
+from typing import Optional
+from beanie import Document
+from pydantic import EmailStr, Field
+from pymongo import IndexModel
 
-from ..database import Base
+class User(Document):
+    email: EmailStr = Field(..., unique=True)
+    password_hash: str
+    full_name: str
+    phone: Optional[str] = None
+    date_of_birth: Optional[str] = None  # Changed to string for better MongoDB compatibility
+    address: Optional[str] = None
+    bio: Optional[str] = None
+    avatar: Optional[str] = None  # URL to avatar image
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
-class User(Base):
-    __tablename__ = "users"
-
-    id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True, nullable=False)
-    password_hash = Column(String, nullable=False)
-    full_name = Column(String, nullable=False)
-    phone = Column(String, nullable=True)
-    date_of_birth = Column(Date, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    class Settings:
+        name = "users"  # Collection name
+        indexes = [
+            IndexModel("email", unique=True),
+            "full_name",
+            "created_at"
+        ]

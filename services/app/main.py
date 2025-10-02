@@ -1,18 +1,30 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from contextlib import asynccontextmanager
 
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from .config import settings
+from .database import init_database, close_database, health_check
 from .routes.auth import router as auth_router
 from .routes.prediction import router as prediction_router
 from .routes.chat import router as chat_router
 from .routes.admin import router as admin_router
+
 # Create limiter
 limiter = Limiter(key_func=get_remote_address)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application lifespan with MongoDB initialization"""
+    # Startup
+    await init_database()
+    yield
+    # Shutdown
+    await close_database()
 
 def create_application() -> FastAPI:
     """Create and configure the FastAPI application."""
@@ -20,6 +32,7 @@ def create_application() -> FastAPI:
         title="Diabetes Prediction API",
         description="Backend API for Diabetes Prediction System",
         version="1.0.0",
+        lifespan=lifespan
     )
 
     # Attach limiter to app state
@@ -51,5 +64,17 @@ def create_application() -> FastAPI:
     @app.get("/")
     async def root():
         return {"message": "Diabetes Prediction API is running!"}
+
+    @app.get("/health/database")
+    async def database_health():
+        """Check database connection status"""
+        try:
+            is_healthy = await health_check()
+            if is_healthy:
+                return {"status": "healthy", "database": "connected"}
+            else:
+                return {"status": "degraded", "database": "disconnected", "message": "Running in offline mode"}
+        except Exception as e:
+            return {"status": "unhealthy", "database": "error", "error": str(e)}
 
     return app

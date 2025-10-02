@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { Button } from "../components/ui/button.jsx";
 import { Input } from "../components/ui/input.jsx";
 import { Label } from "../components/ui/label.jsx";
@@ -33,7 +33,8 @@ const Prediction = () => {
     physicalActivity: '',
     smoking: '',
     bloodPressure: '',
-    cholesterol: ''
+    cholesterol: '',
+    gestationalHistory: false
   });
   
   const [prediction, setPrediction] = useState(null);
@@ -42,6 +43,102 @@ const Prediction = () => {
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const generateRandomData = () => {
+    // Random test data sets for different risk profiles
+    const testDataSets = [
+      // Low risk young female
+      {
+        age: 25,
+        gender: 'female',
+        height: 165,
+        weight: 60,
+        familyHistory: 'no',
+        physicalActivity: 'high',
+        smoking: 'no',
+        bloodPressure: 'normal',
+        cholesterol: 'normal',
+        gestationalHistory: false
+      },
+      // Moderate risk middle-aged male
+      {
+        age: 45,
+        gender: 'male',
+        height: 175,
+        weight: 85,
+        familyHistory: 'yes',
+        physicalActivity: 'moderate',
+        smoking: 'former',
+        bloodPressure: 'elevated',
+        cholesterol: 'borderline',
+        gestationalHistory: false
+      },
+      // High risk female with gestational history
+      {
+        age: 55,
+        gender: 'female',
+        height: 160,
+        weight: 90,
+        familyHistory: 'yes',
+        physicalActivity: 'low',
+        smoking: 'no',
+        bloodPressure: 'high',
+        cholesterol: 'high',
+        gestationalHistory: true
+      },
+      // High risk senior male
+      {
+        age: 65,
+        gender: 'male',
+        height: 170,
+        weight: 95,
+        familyHistory: 'yes',
+        physicalActivity: 'low',
+        smoking: 'yes',
+        bloodPressure: 'high',
+        cholesterol: 'high',
+        gestationalHistory: false
+      },
+      // Random moderate risk female
+      {
+        age: 38,
+        gender: 'female',
+        height: 158,
+        weight: 75,
+        familyHistory: 'unknown',
+        physicalActivity: 'moderate',
+        smoking: 'no',
+        bloodPressure: 'normal',
+        cholesterol: 'borderline',
+        gestationalHistory: false
+      }
+    ];
+
+    // Pick a random dataset
+    const randomData = testDataSets[Math.floor(Math.random() * testDataSets.length)];
+    
+    // Convert numbers to strings for form inputs
+    setFormData({
+      age: randomData.age.toString(),
+      gender: randomData.gender,
+      height: randomData.height.toString(),
+      weight: randomData.weight.toString(),
+      familyHistory: randomData.familyHistory,
+      physicalActivity: randomData.physicalActivity,
+      smoking: randomData.smoking,
+      bloodPressure: randomData.bloodPressure,
+      cholesterol: randomData.cholesterol,
+      gestationalHistory: randomData.gestationalHistory
+    });
+
+    // Clear any previous prediction
+    setPrediction(null);
+
+    toast({
+      title: "Random Test Data Generated! 🎲",
+      description: `Loaded ${randomData.gender} profile, age ${randomData.age}. Ready to test!`,
+    });
   };
 
   const calculateBMI = () => {
@@ -78,11 +175,15 @@ const Prediction = () => {
         physicalActivity: formData.physicalActivity,
         smoking: formData.smoking,
         bloodPressure: formData.bloodPressure,
-        cholesterol: formData.cholesterol
+        cholesterol: formData.cholesterol,
+        gestationalHistory: formData.gender === 'female' ? formData.gestationalHistory : false
       };
+
+      console.log('🔍 DEBUG: Sending API data:', apiData);
 
       // Call the prediction API with enhanced error handling
       const response = await predictionAPI.predict(apiData);
+      console.log('🔍 DEBUG: API response:', response.data);
       const result = apiHelpers.handleSuccess(response);
       
       if (result.success) {
@@ -90,18 +191,6 @@ const Prediction = () => {
         
         // Validate prediction data for realistic values
         let riskPercentage = predictionData.risk_percentage;
-        
-        // If risk seems unrealistically low, use enhanced fallback
-        if (riskPercentage < 5 && (
-          parseInt(formData.age) > 45 || 
-          calculateBMI() > 30 || 
-          formData.familyHistory === 'yes' ||
-          formData.physicalActivity === 'low'
-        )) {
-          console.warn('API prediction seems unrealistically low, using enhanced calculation');
-          calculateRiskFallback();
-          return;
-        }
         
         setPrediction({
           risk: Math.round(riskPercentage * 10) / 10, // Round to 1 decimal
@@ -123,130 +212,28 @@ const Prediction = () => {
     } catch (error) {
       const errorResult = apiHelpers.handleError(error);
       
-      // Check if it's a rate limiting error
-      if (error.response?.status === 429) {
-        toast({
-          title: "Rate Limit Reached ⏱️",
-          description: "Too many requests. Using offline calculation instead.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "API Unavailable 🔄",
-          description: "Using enhanced offline calculation.",
-          variant: "destructive",
-        });
-      }
+      // Show the actual error instead of falling back
+      toast({
+        title: "Prediction Failed ❌",
+        description: `Error: ${errorResult.message}. Please check your input and try again.`,
+        variant: "destructive",
+      });
       
-      // Fall back to enhanced local calculation
-      console.warn('API prediction failed, using enhanced fallback calculation:', errorResult.message);
-      calculateRiskFallback();
+      console.error('Prediction API error:', errorResult);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const calculateRiskFallback = () => {
-    // Enhanced fallback calculation with more realistic scoring
-    let riskScore = 0;
-    
-    // Age factor (more nuanced)
-    const age = parseInt(formData.age);
-    if (age >= 65) riskScore += 25;
-    else if (age >= 55) riskScore += 20;
-    else if (age >= 45) riskScore += 15;
-    else if (age >= 35) riskScore += 8;
-    else if (age >= 25) riskScore += 3;
-    
-    // BMI factor (more detailed)
-    const bmi = calculateBMI();
-    if (bmi >= 35) riskScore += 30; // Severely obese
-    else if (bmi >= 30) riskScore += 20; // Obese
-    else if (bmi >= 27) riskScore += 12; // Overweight (higher risk)
-    else if (bmi >= 25) riskScore += 8; // Overweight
-    else if (bmi < 18.5) riskScore += 5; // Underweight
-    
-    // Family history (strong predictor)
-    if (formData.familyHistory === 'yes') riskScore += 25;
-    
-    // Lifestyle factors
-    if (formData.physicalActivity === 'low') riskScore += 18;
-    else if (formData.physicalActivity === 'moderate') riskScore += 5;
-    
-    if (formData.smoking === 'yes') riskScore += 15;
-    else if (formData.smoking === 'former') riskScore += 8;
-    
-    // Health conditions
-    if (formData.bloodPressure === 'high') riskScore += 18;
-    else if (formData.bloodPressure === 'elevated') riskScore += 10;
-    
-    if (formData.cholesterol === 'high') riskScore += 15;
-    else if (formData.cholesterol === 'borderline') riskScore += 8;
-    
-    // Gender factor (males at slightly higher risk)
-    if (formData.gender === 'male') riskScore += 3;
-    
-    // Ensure minimum baseline risk for realistic results
-    riskScore = Math.max(riskScore, 8);
-    
-    // Convert to percentage with better scaling
-    const riskPercentage = Math.min(Math.round(riskScore * 1.2), 95);
-    
-    let level;
-    let recommendations;
-    
-    if (riskPercentage < 25) {
-      level = 'low';
-      recommendations = [
-        '🥗 Maintain a balanced, nutrient-rich diet',
-        '🏃‍♂️ Continue regular physical activity (150+ min/week)',
-        '� Schedule annual health screenings',
-        '💧 Stay well-hydrated and limit sugary drinks',
-        '� Ensure adequate sleep (7-9 hours nightly)',
-        '🧘‍♀️ Practice stress management techniques'
-      ];
-    } else if (riskPercentage < 60) {
-      level = 'moderate';
-      recommendations = [
-        '🍎 Follow a diabetes prevention diet (low processed foods)',
-        '🏋️‍♂️ Increase physical activity to 200+ min/week',
-        '⚖️ Work towards achieving ideal body weight',
-        '🩺 Schedule health check-ups every 6 months',
-        '🚭 If smoking, consider cessation programs',
-        '📊 Monitor blood pressure and cholesterol regularly',
-        '🥦 Increase fiber intake and reduce refined carbs'
-      ];
-    } else {
-      level = 'high';
-      recommendations = [
-        '🏥 Consult with a healthcare provider within 2 weeks',
-        '🍽️ Follow a strict low-glycemic meal plan',
-        '💊 Discuss preventive medications (metformin) with doctor',
-        '🩸 Get comprehensive blood work (HbA1c, fasting glucose)',
-        '📋 Consider referral to endocrinologist',
-        '🤝 Join a diabetes prevention program',
-        '📱 Use glucose monitoring if recommended by doctor',
-        '👥 Build a support network for lifestyle changes'
-      ];
-    }
-    
-    setPrediction({
-      risk: riskPercentage,
-      level,
-      recommendations,
-      bmi: calculateBMI(),
-      modelUsed: 'Enhanced Risk Calculator',
-      confidence: 'evidence-based'
-    });
-    
-    toast({
-      title: "Risk Assessment Complete! 🎯",
-      description: "Calculated using evidence-based risk factors.",
-    });
-  };
-
   const isFormValid = () => {
-    return Object.values(formData).every(value => value.trim() !== '');
+    return Object.entries(formData).every(([key, value]) => {
+      // Boolean fields are always valid if they exist
+      if (typeof value === 'boolean') {
+        return true;
+      }
+      // String fields must not be empty after trimming
+      return value && value.trim() !== '';
+    });
   };
 
   const getRiskColor = (level) => {
@@ -380,6 +367,25 @@ const Prediction = () => {
                     </Select>
                   </div>
 
+                  {/* Gestational History - Only for females */}
+                  {formData.gender === 'female' && (
+                    <div className="space-y-2">
+                      <Label>History of Gestational Diabetes 🤱</Label>
+                      <Select 
+                        value={formData.gestationalHistory ? 'yes' : 'no'} 
+                        onValueChange={(value) => handleInputChange('gestationalHistory', value === 'yes')}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select gestational history" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="no">No</SelectItem>
+                          <SelectItem value="yes">Yes</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Blood Pressure 📊</Label>
@@ -450,6 +456,18 @@ const Prediction = () => {
                 </div>
               </div>
 
+              {/* Random Test Data Button */}
+              <Button
+                onClick={generateRandomData}
+                variant="outline"
+                className="w-full border-2 border-dashed border-primary/30 text-primary hover:bg-primary/5 mb-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <div className="text-lg">🎲</div>
+                  <span>Generate Random Test Data</span>
+                </div>
+              </Button>
+
               <Button
                 onClick={calculateRisk}
                 disabled={!isFormValid() || isLoading}
@@ -468,9 +486,12 @@ const Prediction = () => {
                 )}
               </Button>
               
-              <div className="text-center">
+              <div className="text-center space-y-2">
                 <p className="text-xs text-muted-foreground">
-                  ⚡ Uses AI model when available, falls back to enhanced calculation if needed
+                  🤖 Uses trained Random Forest models for diabetes prediction
+                </p>
+                <p className="text-xs text-muted-foreground/80">
+                  💡 Use "Generate Random Test Data" to quickly test different risk profiles
                 </p>
               </div>
             </CardContent>

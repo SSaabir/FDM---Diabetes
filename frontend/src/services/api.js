@@ -29,11 +29,24 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
+    // Only auto-logout on 401 for specific auth endpoints, not all requests
     if (error.response?.status === 401) {
-      // Token expired or invalid - clear token and redirect to login
-      localStorage.removeItem('diabetesPredict_token');
-      localStorage.removeItem('diabetesPredict_user');
-      window.location.href = '/login';
+      const url = error.config?.url || '';
+      
+      // Only auto-logout for critical auth endpoints
+      if (url.includes('/auth/me') || url.includes('/admin/me')) {
+        console.warn('Authentication token invalid, redirecting to login');
+        localStorage.removeItem('diabetesPredict_token');
+        localStorage.removeItem('diabetesPredict_user_type');
+        localStorage.removeItem('diabetesPredict_user_info');
+        localStorage.removeItem('diabetesPredict_user');
+        
+        // Avoid infinite redirect loops
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login';
+        }
+      }
+      // For other 401 errors, just let the component handle them
     }
     return Promise.reject(error);
   }
@@ -42,6 +55,8 @@ api.interceptors.response.use(
 // Authentication API functions
 export const authAPI = {
   signup: (userData) => api.post('/auth/signup', userData),
+  
+  // Unified login for both users and admins
   login: (email, password) => {
     const formData = new URLSearchParams();
     formData.append('username', email); // OAuth2 expects 'username' field
@@ -53,9 +68,18 @@ export const authAPI = {
       },
     });
   },
+  
+  // Get current user info (works for both users and admins)
   getCurrentUser: () => api.get('/auth/me'),
+  
+  // Get current admin info (admin-specific endpoint)
+  getCurrentAdmin: () => api.get('/admin/me'),
+  
+  // Logout function
   logout: () => {
     localStorage.removeItem('diabetesPredict_token');
+    localStorage.removeItem('diabetesPredict_user_type');
+    localStorage.removeItem('diabetesPredict_user_info');
     localStorage.removeItem('diabetesPredict_user');
   },
 };
@@ -105,6 +129,49 @@ export const chatAPI = {
   quickResponse: (message) => api.post('/api/chat/quick-response', null, {
     params: { message }
   }),
+};
+
+// Admin API functions
+export const adminAPI = {
+  // Get current admin info
+  getCurrentAdmin: () => api.get('/admin/me'),
+  
+  // Create new admin (superadmin only)
+  createAdmin: (adminData) => api.post('/admin/create-admin', adminData),
+  
+  // List all admins (superadmin only)
+  listAdmins: () => api.get('/admin/list-admins'),
+  
+  // Delete admin (superadmin only)
+  deleteAdmin: (adminId) => api.delete(`/admin/delete-admin/${adminId}`),
+  
+  // Get admin statistics
+  getAdminStats: () => api.get('/admin/stats'),
+};
+
+// Profile API functions
+export const profileAPI = {
+  // Update user profile information
+  updateProfile: (profileData) => api.put('/auth/profile', profileData),
+  
+  // Change user password
+  changePassword: (passwordData) => api.put('/auth/change-password', passwordData),
+  
+  // Upload profile avatar
+  uploadAvatar: (formData) => api.post('/auth/upload-avatar', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  }),
+  
+  // Delete profile avatar
+  deleteAvatar: () => api.delete('/auth/avatar'),
+  
+  // Get user profile (detailed version)
+  getProfile: () => api.get('/auth/profile'),
+  
+  // Update profile preferences
+  updatePreferences: (preferences) => api.put('/auth/preferences', preferences),
 };
 
 // Generic API functions

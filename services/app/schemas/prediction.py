@@ -37,7 +37,7 @@ class SmokingEnum(str, Enum):
     former = "former"
 
 class PredictionRequest(BaseModel):
-    """Request model for diabetes risk prediction"""
+    """Request model for diabetes risk prediction - supports dual model system"""
     
     age: int = Field(..., ge=18, le=120, description="Age in years")
     gender: GenderEnum = Field(..., description="Gender")
@@ -48,6 +48,9 @@ class PredictionRequest(BaseModel):
     smoking: SmokingEnum = Field(..., description="Smoking status")
     bloodPressure: BloodPressureEnum = Field(..., description="Blood pressure level")
     cholesterol: CholesterolEnum = Field(..., description="Cholesterol level")
+    
+    # Additional field for women-specific model
+    gestationalHistory: Optional[bool] = Field(False, description="History of gestational diabetes (for women)")
 
     @validator('age')
     def validate_age(cls, v):
@@ -66,24 +69,32 @@ class PredictionRequest(BaseModel):
         if v < 30 or v > 300:
             raise ValueError('Weight must be between 30 and 300 kg')
         return v
+    
+    @validator('gestationalHistory')
+    def validate_gestational_history(cls, v, values):
+        # Only relevant for females
+        if values.get('gender') == 'female':
+            return v if v is not None else False
+        return False  # Default to False for non-females
 
     class Config:
         json_schema_extra = {
             "example": {
-                "age": 45,
-                "gender": "male",
-                "height": 175,
-                "weight": 80,
-                "familyHistory": "yes",
+                "age": 35,
+                "gender": "female",
+                "height": 165,
+                "weight": 65,
+                "familyHistory": "no",
                 "physicalActivity": "moderate",
                 "smoking": "no",
                 "bloodPressure": "normal",
-                "cholesterol": "borderline"
+                "cholesterol": "normal",
+                "gestationalHistory": False
             }
         }
 
 class PredictionResponse(BaseModel):
-    """Response model for diabetes risk prediction"""
+    """Response model for diabetes risk prediction - includes dual model info"""
     
     risk_percentage: float = Field(..., description="Diabetes risk percentage (0-100)")
     risk_level: str = Field(..., description="Risk level: low, moderate, or high")
@@ -92,6 +103,10 @@ class PredictionResponse(BaseModel):
     bmi: float = Field(..., description="Calculated BMI")
     model_used: str = Field(..., description="ML model used for prediction")
     confidence: str = Field(..., description="Prediction confidence: low, moderate, or high")
+    
+    # Additional fields for dual model system
+    gender_detected: Optional[str] = Field(None, description="Detected gender for model routing")
+    gestationalHistory: Optional[bool] = Field(None, description="Gestational diabetes history considered")
 
     class Config:
         json_schema_extra = {
@@ -105,8 +120,10 @@ class PredictionResponse(BaseModel):
                     "📊 Monitor your health annually"
                 ],
                 "bmi": 26.1,
-                "model_used": "Random Forest",
-                "confidence": "high"
+                "model_used": "General Model",
+                "confidence": "high",
+                "gender_detected": "female",
+                "gestationalHistory": False
             }
         }
 
