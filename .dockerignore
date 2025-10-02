@@ -1,0 +1,111 @@
+# Version control
+.git
+.gitignore
+
+# Documentation
+README.md
+*.md
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Dependencies
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python cache and virtual environments
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.venv
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Data files - CSV and Excel
+*.csv
+*.xlsx
+*.xls
+
+# Data directories
+data/raw/
+data/processed/
+data/temp/
+reports/
+reports_enhanced/
+
+# Build outputs
+build/
+dist/
+*.tgz
+*.tar.gz
+
+# Temporary files
+tmp/
+temp/
+
+# Testing
+coverage/
+.coverage
+.pytest_cache/
+.tox/
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints
+
+# Model files (large files)
+*.pkl
+*.h5
+*.joblib
+*.model
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
