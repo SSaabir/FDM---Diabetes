@@ -1,9 +1,4 @@
-# Use official Python 3.11 slim image
-FROM python:3.11-slim
-
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+FROM python:3.12-slim
 
 # Set working directory
 WORKDIR /app
@@ -23,20 +18,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip
+# Upgrade pip, setuptools, wheel
 RUN pip install --upgrade pip setuptools wheel
 
-# Copy requirements file
+# Copy requirements and install Python dependencies
 COPY requirements.txt .
-
-# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .
 
-# Expose port for FastAPI
+# Expose port
 EXPOSE 8000
 
-# Command to run the FastAPI server with uvicorn
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Run app
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
