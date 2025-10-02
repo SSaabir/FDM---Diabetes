@@ -3,13 +3,11 @@ Prediction API Routes
 Handles diabetes risk prediction requests
 """
 from fastapi import APIRouter, HTTPException, Depends, Request
-from sqlalchemy.orm import Session
 from typing import Any
 import logging
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
-from ..database import get_db
 from ..services.prediction import prediction_service
 from ..schemas.prediction import PredictionRequest, PredictionResponse
 from ..utils.auth import get_current_user
@@ -74,8 +72,7 @@ async def predict_diabetes_risk_public(
 async def predict_diabetes_risk(
     request: Request,
     prediction_request: PredictionRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_user)
 ):
     try:
         user_input = prediction_request.dict()

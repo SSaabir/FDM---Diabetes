@@ -3,12 +3,10 @@ Chat API Routes
 Handles AI-powered diabetes chat assistance
 """
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy.orm import Session
 from typing import List, Optional
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
-from ..database import get_db
 from ..utils.auth import get_current_user
 from ..models.user import User
 from ..services.chat import chat_service
@@ -29,15 +27,14 @@ limiter = Limiter(key_func=get_remote_address)
 async def chat_with_ai(
     request: Request,
     chat_request: ChatRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Send a message to the diabetes AI chat assistant
     """
     try:
         user_context = {
-            "user_id": current_user.id,
+            "user_id": str(current_user.id),
             "user_email": current_user.email,
             "conversation_context": chat_request.context
         }

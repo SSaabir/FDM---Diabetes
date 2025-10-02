@@ -1,16 +1,29 @@
-from sqlalchemy import Column, Integer, String, DateTime
-from sqlalchemy.sql import func
+from datetime import datetime
+from beanie import Document
+from pydantic import EmailStr, Field
+from pymongo import IndexModel
+from typing import Literal
 
-from ..database import Base
+class Admin(Document):
+    full_name: str
+    position: str
+    contact_number: str
+    email: EmailStr = Field(..., unique=True)
+    password_hash: str
+    role: Literal["superadmin", "admin"] = Field(default="admin")  # Role-based access
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
-class Admin(Base):
-    __tablename__ = "admins"
+    class Settings:
+        name = "admins"
+        indexes = [
+            IndexModel("email", unique=True),
+            "position",
+            "role",
+            "created_at"
+        ]
 
-    id = Column(Integer, primary_key=True, index=True)
-    full_name = Column(String, nullable=False)
-    position = Column(String, nullable=False)
-    contact_number = Column(String, nullable=False)
-    email = Column(String, unique=True, index=True, nullable=False)
-    password_hash = Column(String, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }
