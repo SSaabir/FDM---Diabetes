@@ -7,11 +7,13 @@ import PredictionsSection from '../components/dashboard/PredictionsSection';
 import SystemMonitoringSection from '../components/dashboard/SystemMonitoringSection';
 import useAdminData from '../hooks/useAdminData';
 import useRealTimeUpdates from '../hooks/useRealTimeUpdates';
-import { Bell, LogOut, User, Wifi, WifiOff } from 'lucide-react';
+import { Bell, LogOut, User, Wifi, WifiOff, UserPlus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const AdminDashboard = () => {
   const { data, loading, error, refreshData } = useAdminData();
   const { isConnected, lastUpdate } = useRealTimeUpdates();
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-[#F3F3E0] p-6">
@@ -55,10 +57,19 @@ const AdminDashboard = () => {
               </div>
               <span className="text-[#183B4E] font-medium">Admin User</span>
             </div>
-            <button className="px-4 py-2 bg-[#27548A] text-white rounded-lg hover:bg-[#183B4E] transition-colors">
-              <LogOut size={16} className="inline mr-2" />
-              Logout
-            </button>
+            <div className="flex flex-col space-y-2">
+              <button className="px-4 py-2 bg-[#27548A] text-white rounded-lg hover:bg-[#183B4E] transition-colors">
+                <LogOut size={16} className="inline mr-2" />
+                Logout
+              </button>
+              <button
+                onClick={() => navigate('/add-admin')}
+                className="px-4 py-2 bg-[#27548A] text-white rounded-lg hover:bg-[#183B4E] transition-colors"
+              >
+                <UserPlus size={16} className="inline mr-2" />
+                Add Admin
+              </button>
+            </div>
           </div>
         </div>
       </header>
