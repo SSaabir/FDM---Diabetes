@@ -25,7 +25,8 @@ limiter = Limiter(key_func=get_remote_address)
 def sanitize_input(field: str, value: Any) -> Any:
     if isinstance(value, str):
         value = value.strip().replace("<", "").replace(">", "")
-        if field in ['age', 'height', 'weight', 'bloodPressure', 'cholesterol', 'hbA1c_level', 'blood_glucose_level']:
+        # Only apply numeric sanitization to actual numeric fields
+        if field in ['age', 'height', 'weight', 'hbA1c_level', 'blood_glucose_level']:
             value = ''.join(c for c in value if c.isdigit() or c == '.')
             try:
                 value = float(value)
@@ -35,7 +36,7 @@ def sanitize_input(field: str, value: Any) -> Any:
             value = value.lower()
             if value not in ['male', 'female', 'other']:
                 value = ''
-        if field in ['smoking', 'physicalActivity', 'familyHistory']:
+        if field in ['smoking', 'physicalActivity', 'familyHistory', 'bloodPressure', 'cholesterol']:
             value = value.lower()
     if isinstance(value, (int, float)):
         return value
