@@ -1,0 +1,12 @@
+{
+  "age": 45,
+  "gender": "male",
+  "height": 175,
+  "weight": 80,
+  "familyHistory": "no",
+  "physicalActivity": "moderate",
+  "smoking": "no",
+  "bloodPressure": "normal",
+  "cholesterol": "normal",
+  "gestationalHistory": false
+}

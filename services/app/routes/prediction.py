@@ -147,3 +147,68 @@ async def validate_prediction_input(
     except Exception as e:
         logger.error(f"Error validating input: {str(e)}")
         raise HTTPException(status_code=500, detail="Error validating input")
+
+@router.get("/debug/models")
+async def debug_models():
+    """Debug endpoint to check model files and loading status"""
+    from pathlib import Path
+    import os
+    
+    try:
+        models_path = Path(__file__).parent.parent.parent / "models"
+        
+        # Check model files
+        model_files = {}
+        model_files_to_check = [
+            "diabetes_general_model.pkl",
+            "diabetes_general_model_compressed_lvl3.pkl", 
+            "diabetes_women_model.pkl",
+            "diabetes_model.pkl",
+            "diabetes_rf_tuned.pkl",
+            "general_model_features.json",
+            "women_model_features.json"
+        ]
+        
+        for file_name in model_files_to_check:
+            file_path = models_path / file_name
+            if file_path.exists():
+                size_mb = file_path.stat().st_size / (1024 * 1024)
+                model_files[file_name] = {
+                    "exists": True,
+                    "size_mb": round(size_mb, 2),
+                    "path": str(file_path)
+                }
+            else:
+                model_files[file_name] = {
+                    "exists": False,
+                    "size_mb": 0,
+                    "path": str(file_path)
+                }
+        
+        # Check prediction service status
+        service_status = {
+            "general_model_loaded": prediction_service.general_model is not None,
+            "women_model_loaded": prediction_service.women_model is not None,
+            "legacy_model_loaded": prediction_service.rf_model is not None,
+            "general_model_type": str(type(prediction_service.general_model)) if prediction_service.general_model else None,
+            "women_model_type": str(type(prediction_service.women_model)) if prediction_service.women_model else None,
+            "legacy_model_type": str(type(prediction_service.rf_model)) if prediction_service.rf_model else None
+        }
+        
+        return {
+            "models_path": str(models_path),
+            "models_path_exists": models_path.exists(),
+            "model_files": model_files,
+            "service_status": service_status,
+            "environment": os.environ.get("RAILWAY_ENVIRONMENT", "local")
+        }
+        
+    except Exception as e:
+        return {
+            "error": str(e),
+            "models_path": "unknown",
+            "models_path_exists": False,
+            "model_files": {},
+            "service_status": {},
+            "environment": os.environ.get("RAILWAY_ENVIRONMENT", "local")
+        }
