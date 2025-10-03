@@ -1,6 +1,7 @@
 import numpy as np
+import pandas as pd
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 import logging
 import joblib
 import json
@@ -10,718 +11,195 @@ logger = logging.getLogger(__name__)
 class DiabetesPredictionService:
     def __init__(self):
         self.models_path = Path(__file__).parent.parent.parent / "models"
-        self.processed_data_path = Path(__file__).parent.parent.parent / "data" / "processed_enhanced"
-        
-        # Legacy model (for backward compatibility)
-        self.rf_model = None
-        self.feature_columns = None
+        self.model = None
         self.scaler = None
+        self.feature_columns = None
         
-        # Dual model system
-        self.general_model = None
-        self.women_model = None
-        self.general_features = None
-        self.women_features = None
-        
-        self.load_models()
+        self.load_model()
 
-    # -------------------------------
-    # ✅ Sanitization helper
-    # -------------------------------
-    def _sanitize_input(self, field: str, value: Any) -> Any:
-        """
-        Clean user input to prevent invalid characters or wrong types
-        """
-        if isinstance(value, str):
-            value = value.strip().replace("<", "").replace(">", "")
-            
-            # Only apply numeric sanitization to actual numeric fields
-            if field in ['age', 'height', 'weight', 'hbA1c_level', 'blood_glucose_level']:
-                value = ''.join(c for c in value if c.isdigit() or c == '.')
-                try:
-                    value = float(value)
-                except ValueError:
-                    value = 0.0
-            
-            # Categorical fields: ensure allowed values
-            if field == 'gender':
-                value = value.lower()
-                if value not in ['male', 'female', 'other']:
-                    value = ''
-            if field in ['smoking', 'physicalActivity', 'familyHistory']:
-                value = value.lower()
-        
-        if isinstance(value, (int, float)):
-            return value
-        return value
-
-    # -------------------------------
-    # ✅ Preprocess inputs for ML
-    # -------------------------------
-    def preprocess_input(self, user_input: Dict[str, Any]) -> np.ndarray:
-        """
-        Preprocess user input for Random Forest model with all 29 features
-        """
+    def load_model(self):
+        """Load a simple diabetes prediction model"""
         try:
-            # Sanitize inputs
-            age = self._sanitize_input('age', user_input.get('age', 30))
-            height = self._sanitize_input('height', user_input.get('height', 170))
-            weight = self._sanitize_input('weight', user_input.get('weight', 70))
-            bmi = weight / ((height / 100) ** 2)
-            gender = self._sanitize_input('gender', user_input.get('gender', ''))
-            smoking = self._sanitize_input('smoking', user_input.get('smoking', 'never'))
+            # Try to load the basic RF model
+            model_path = self.models_path / "diabetes_rf_tuned.pkl"
             
-            # Estimate HbA1c and glucose based on risk factors if not provided
-            hba1c_val = user_input.get('hbA1c_level')
-            glucose_val = user_input.get('blood_glucose_level')
-            
-            if hba1c_val is None:
-                # Estimate HbA1c based on risk factors
-                base_hba1c = 5.2  # Normal baseline
-                if age > 45: base_hba1c += 0.2
-                if bmi > 30: base_hba1c += 0.4
-                elif bmi > 25: base_hba1c += 0.2
-                if user_input.get('familyHistory') == 'yes': base_hba1c += 0.3
-                if user_input.get('physicalActivity') == 'low': base_hba1c += 0.3
-                if user_input.get('bloodPressure') == 'high': base_hba1c += 0.2
-                if user_input.get('cholesterol') == 'high': base_hba1c += 0.2
-                if smoking in ['yes', 'current']: base_hba1c += 0.1
-                hba1c_val = min(base_hba1c, 8.0)  # Cap at reasonable max
+            if model_path.exists():
+                self.model = joblib.load(model_path)
+                logger.info(f"✅ Model loaded: {model_path}")
+            else:
+                logger.warning("⚠️  Model file not found, using fallback prediction")
+                self.model = None
                 
-            if glucose_val is None:
-                # Estimate glucose based on risk factors
-                base_glucose = 90  # Normal baseline
-                if age > 45: base_glucose += 5
-                if bmi > 30: base_glucose += 15
-                elif bmi > 25: base_glucose += 8
-                if user_input.get('familyHistory') == 'yes': base_glucose += 10
-                if user_input.get('physicalActivity') == 'low': base_glucose += 10
-                if user_input.get('bloodPressure') == 'high': base_glucose += 8
-                if user_input.get('cholesterol') == 'high': base_glucose += 5
-                glucose_val = min(base_glucose, 180)  # Cap at reasonable max
-
-            hba1c_val = self._sanitize_input('hbA1c_level', hba1c_val)
-            glucose_val = self._sanitize_input('blood_glucose_level', glucose_val)
-
-            # Initialize feature dictionary with all 29 features
-            features_dict = {col: 0.0 for col in self.feature_columns}
-
-            # Basic features with proper scaling
-            features_dict['age'] = (age - 41.885856) / 22.51683987161702
-            features_dict['bmi'] = (bmi - 27.320767099999994) / 6.636783416648368
-            features_dict['hbA1c_level'] = (hba1c_val - 6.0) / 1.5
-            features_dict['blood_glucose_level'] = (glucose_val - 120) / 40
-
-            # Gender encoding
-            features_dict['gender_Female'] = 1.0 if gender == 'female' else 0.0
-            features_dict['gender_Male'] = 1.0 if gender == 'male' else 0.0
-
-            # Smoking history - map form values to model features
-            if smoking in ['no', 'never']:
-                features_dict['smoking_history_never'] = 1.0
-            elif smoking in ['yes', 'current']:
-                features_dict['smoking_history_current'] = 1.0
-            elif smoking == 'former':
-                features_dict['smoking_history_former'] = 1.0
-            else:
-                features_dict['smoking_history_never'] = 1.0  # default
-
-            # BMI categories
-            if bmi < 18.5:
-                features_dict['bmi_category_Underweight'] = 1.0
-                features_dict['bmi_risk_level_underweight'] = 1.0
-            elif bmi < 25:
-                features_dict['bmi_category_Normal'] = 1.0
-                features_dict['bmi_risk_level_normal'] = 1.0
-            elif bmi < 30:
-                features_dict['bmi_category_Overweight'] = 1.0
-                features_dict['bmi_risk_level_overweight'] = 1.0
-            elif bmi < 35:
-                features_dict['bmi_category_Obese'] = 1.0
-                features_dict['bmi_risk_level_obese_1'] = 1.0
-            else:
-                features_dict['bmi_category_Obese'] = 1.0
-                features_dict['bmi_risk_level_obese_2'] = 1.0
-
-            # Age groups
-            if age < 18:
-                features_dict['age_group_Child'] = 1.0
-                features_dict['age_diabetes_risk_low_risk'] = 1.0
-            elif age < 45:
-                features_dict['age_group_Adult'] = 1.0
-                features_dict['age_diabetes_risk_low_risk'] = 1.0
-            elif age < 65:
-                features_dict['age_group_Middle-aged'] = 1.0
-                features_dict['age_diabetes_risk_moderate_risk'] = 1.0
-            else:
-                features_dict['age_group_Senior'] = 1.0
-                features_dict['age_diabetes_risk_high_risk'] = 1.0
-
-            # Convert to numpy array in correct order
-            feature_array = np.array([features_dict[col] for col in self.feature_columns]).reshape(1, -1)
-            logger.info(f"✅ Generated all {len(self.feature_columns)} features for Random Forest model")
-            logger.info(f"🔬 Estimated HbA1c: {hba1c_val:.1f}, Glucose: {glucose_val:.0f}")
-            return feature_array
-
         except Exception as e:
-            logger.error(f"❌ Error in preprocessing: {str(e)}")
-            raise
+            logger.error(f"❌ Error loading model: {str(e)}")
+            self.model = None
 
-    # -------------------------------
-    # ✅ Generate prediction with dual model routing
-    # -------------------------------
-    def predict_diabetes_risk(self, user_input: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Generate diabetes risk prediction using dual model system or fallback
-        """
+    def preprocess_input(self, user_input: Dict[str, Any]) -> Dict[str, float]:
+        """Simple preprocessing of user input"""
         try:
-            # Sanitize all inputs
-            for field in user_input:
-                user_input[field] = self._sanitize_input(field, user_input[field])
-
-            # Calculate BMI
-            height_m = float(user_input.get('height', 170)) / 100
+            # Extract basic inputs
+            age = float(user_input.get('age', 35))
+            height = float(user_input.get('height', 170))
             weight = float(user_input.get('weight', 70))
-            bmi = weight / (height_m ** 2)
             
-            # Determine gender for model routing
-            gender = user_input.get('gender', '').lower()
+            # Calculate BMI
+            bmi = weight / ((height / 100) ** 2)
             
-            # ML prediction with dual model system
-            if self.general_model and self.women_model:
-                try:
-                    risk_probability, model_used = self._predict_with_dual_models(user_input, gender)
-                    risk_percentage = float(risk_probability * 100)
-                    confidence = "high" if risk_percentage < 20 or risk_percentage > 80 else "moderate"
-                except Exception as e:
-                    logger.warning(f"Dual model failed, using fallback: {str(e)}")
-                    return self._rule_based_prediction(user_input, bmi)
-            elif self.rf_model:
-                # Fallback to legacy single model
-                try:
-                    features = self.preprocess_input(user_input)
-                    risk_probability = self.rf_model.predict_proba(features)[0][1]
-                    risk_percentage = float(risk_probability * 100)
-                    model_used = "Legacy Random Forest"
-                    confidence = "high" if risk_percentage < 20 or risk_percentage > 80 else "moderate"
-                except Exception as e:
-                    logger.warning(f"Legacy model failed, using fallback: {str(e)}")
-                    return self._rule_based_prediction(user_input, bmi)
+            # Extract categorical inputs
+            gender = user_input.get('gender', 'male').lower()
+            smoking_history = user_input.get('smoking_history', 'never').lower()
+            hypertension = 1 if user_input.get('hypertension', False) else 0
+            heart_disease = 1 if user_input.get('heart_disease', False) else 0
+            family_history = 1 if user_input.get('family_history', False) else 0
+            
+            # Create feature dictionary
+            features = {
+                'age': age,
+                'bmi': bmi,
+                'gender': 1 if gender == 'male' else 0,
+                'smoking_history': self._encode_smoking(smoking_history),
+                'hypertension': hypertension,
+                'heart_disease': heart_disease,
+                'family_history': family_history,
+                'physical_activity': float(user_input.get('physical_activity', 2.5)),
+                'diet_pattern': self._encode_diet(user_input.get('diet_pattern', 'balanced')),
+                'sleep_hours': float(user_input.get('sleep_hours', 7.5)),
+                'alcohol_intake': self._encode_alcohol(user_input.get('alcohol_intake', 'none')),
+                'stress_level': self._encode_stress(user_input.get('stress_level', 'moderate'))
+            }
+            
+            return features
+            
+        except Exception as e:
+            logger.error(f"Error in preprocessing: {str(e)}")
+            raise ValueError(f"Invalid input data: {str(e)}")
+
+    def _encode_smoking(self, smoking_history: str) -> int:
+        smoking_map = {
+            'never': 0,
+            'former': 1,
+            'current': 2,
+            'not current': 1,
+            'no info': 0
+        }
+        return smoking_map.get(smoking_history.lower(), 0)
+
+    def _encode_diet(self, diet_pattern: str) -> int:
+        diet_map = {
+            'balanced': 0,
+            'low_carb': 1,
+            'high_protein': 2,
+            'vegetarian': 3,
+            'processed': 4
+        }
+        return diet_map.get(diet_pattern.lower(), 0)
+
+    def _encode_alcohol(self, alcohol_intake: str) -> int:
+        alcohol_map = {
+            'none': 0,
+            'occasional': 1,
+            'moderate': 2,
+            'frequent': 3
+        }
+        return alcohol_map.get(alcohol_intake.lower(), 0)
+
+    def _encode_stress(self, stress_level: str) -> int:
+        stress_map = {
+            'low': 0,
+            'moderate': 1,
+            'high': 2
+        }
+        return stress_map.get(stress_level.lower(), 1)
+
+    def predict_diabetes_risk(self, user_input: Dict[str, Any]) -> Dict[str, Any]:
+        """Predict diabetes risk from user input"""
+        try:
+            # Preprocess input
+            features = self.preprocess_input(user_input)
+            
+            if self.model is not None:
+                # Use ML model for prediction
+                feature_df = pd.DataFrame([features])
+                risk_probability = self.model.predict_proba(feature_df)[0][1]
+                model_used = "Random Forest Model"
             else:
-                return self._rule_based_prediction(user_input, bmi)
-
-            # Apply multiple risk factors boost for medical appropriateness
-            # TEMPORARILY DISABLED FOR DEBUGGING
-            # risk_percentage = self._apply_multiple_risk_boost(user_input, risk_percentage, bmi)
+                # Use simple risk calculator as fallback
+                risk_probability = self._calculate_risk_fallback(features)
+                model_used = "Risk Calculator (Fallback)"
             
-            logger.info(f"🔍 DEBUG: Base risk before boost: {risk_percentage}%")
-
-            # Risk level - Updated for medical appropriateness
-            if risk_percentage < 15:  # Lowered from 30%
-                risk_level = "low"
-                risk_color = "green"
-            elif risk_percentage < 50:  # Lowered from 70%
-                risk_level = "moderate"
-                risk_color = "orange"
+            # Determine risk level
+            if risk_probability < 0.3:
+                risk_level = "Low"
+                recommendations = [
+                    "Maintain a healthy lifestyle",
+                    "Regular exercise and balanced diet",
+                    "Annual health checkups"
+                ]
+            elif risk_probability < 0.6:
+                risk_level = "Moderate"
+                recommendations = [
+                    "Increase physical activity",
+                    "Monitor blood glucose levels",
+                    "Consider dietary consultation"
+                ]
             else:
-                risk_level = "high"
-                risk_color = "red"
-
-            recommendations = self._generate_recommendations(user_input, risk_level)
+                risk_level = "High"
+                recommendations = [
+                    "Consult healthcare provider immediately",
+                    "Regular blood glucose monitoring",
+                    "Lifestyle intervention program"
+                ]
 
             return {
-                "risk_percentage": round(risk_percentage, 1),
+                "risk_probability": round(risk_probability, 4),
                 "risk_level": risk_level,
-                "risk_color": risk_color,
                 "recommendations": recommendations,
-                "bmi": round(bmi, 1),
                 "model_used": model_used,
-                "confidence": confidence,
-                "gender_detected": gender if gender in ['male', 'female'] else 'unknown',
-                "gestationalHistory": user_input.get('gestationalHistory', False) if gender == 'female' else None
+                "bmi": round(features['bmi'], 2)
             }
 
         except Exception as e:
             logger.error(f"Prediction error: {str(e)}")
-            raise ValueError(f"Failed to generate prediction: {str(e)}")
-    
-    # -------------------------------
-    # ✅ Multiple risk factors boost
-    # -------------------------------
-    def _apply_multiple_risk_boost(self, user_input: Dict[str, Any], base_risk: float, bmi: float) -> float:
-        """
-        Apply medical boost when multiple high-risk factors are present
-        """
-        risk_factors = []
-        age = int(user_input.get('age', 30))
-        
-        # Count high-risk factors
-        if age >= 65:
-            risk_factors.append("very_senior")
-        elif age >= 45:
-            risk_factors.append("senior")
-            
-        if bmi >= 35:
-            risk_factors.append("severe_obesity")
-        elif bmi >= 30:
-            risk_factors.append("obesity")
-        elif bmi >= 25:
-            risk_factors.append("overweight")
-            
-        if user_input.get('familyHistory') == 'yes':
-            risk_factors.append("family_history")
-            
-        if user_input.get('bloodPressure') == 'high':
-            risk_factors.append("hypertension")
-            
-        if user_input.get('cholesterol') == 'high':
-            risk_factors.append("high_cholesterol")
-            
-        if user_input.get('smoking') in ['yes', 'current']:
-            risk_factors.append("smoking")
-            
-        if user_input.get('physicalActivity') == 'low':
-            risk_factors.append("sedentary")
-        
-        # Apply progressive boost based on number of risk factors
-        boost_multiplier = 1.0
-        risk_count = len(risk_factors)
-        
-        if risk_count >= 5:  # 5+ risk factors - significant boost
-            boost_multiplier = 1.6  # 60% increase
-            logger.info(f"🚨 High risk patient: {risk_count} factors detected: {risk_factors}")
-        elif risk_count >= 4:  # 4 risk factors - moderate boost
-            boost_multiplier = 1.4  # 40% increase
-            logger.info(f"⚠️ Elevated risk: {risk_count} factors detected: {risk_factors}")
-        elif risk_count >= 3:  # 3 risk factors - small boost
-            boost_multiplier = 1.2  # 20% increase
-            logger.info(f"📈 Multiple risk factors: {risk_count} detected: {risk_factors}")
-        
-        # Apply boost but cap at 99.9%
-        boosted_risk = min(base_risk * boost_multiplier, 99.9)
-        
-        if boost_multiplier > 1.0:
-            logger.info(f"Risk boost applied: {base_risk:.1f}% → {boosted_risk:.1f}% (x{boost_multiplier})")
-        
-        return boosted_risk
-    
-    # -------------------------------
-    # ✅ Dual model prediction logic
-    # -------------------------------
-    def _predict_with_dual_models(self, user_input: Dict[str, Any], gender: str) -> tuple:
-        """
-        Route prediction to appropriate model based on gender
-        """
-        # Determine which model to use
-        if gender == 'female' and self.women_model:
-            # Use women-specific model for females
-            features = self._preprocess_for_model(user_input, self.women_features, 'women')
-            risk_probability = self.women_model.predict_proba(features)[0][1]
-            model_used = "Women-Specific Model"
-            logger.info(f"🚺 Using women-specific model for female patient")
-        else:
-            # Use general model for males and unknown gender
-            features = self._preprocess_for_model(user_input, self.general_features, 'general')
-            risk_probability = self.general_model.predict_proba(features)[0][1]
-            model_used = "General Model" if gender == 'male' else "General Model (Unknown Gender)"
-            logger.info(f"👨 Using general model for {gender if gender else 'unknown gender'} patient")
-        
-        return risk_probability, model_used
-    
-    # -------------------------------
-    # ✅ Model-specific preprocessing
-    # -------------------------------
-    def _preprocess_for_model(self, user_input: Dict[str, Any], feature_columns: list, model_type: str) -> np.ndarray:
-        """
-        Preprocess input for specific model (general or women's)
-        """
-        try:
-            # Get sanitized values
-            age = float(user_input.get('age', 30))
-            height = float(user_input.get('height', 170))
-            weight = float(user_input.get('weight', 70))
-            bmi = weight / ((height / 100) ** 2)
-            gender = user_input.get('gender', '').lower()
-            smoking = user_input.get('smoking', 'never').lower()
-            
-            # Estimate clinical values if not provided
-            hba1c_val = self._estimate_hba1c(user_input, age, bmi)
-            glucose_val = self._estimate_glucose(user_input, age, bmi)
+            return {
+                "error": f"Prediction failed: {str(e)}",
+                "risk_probability": 0.0,
+                "risk_level": "Unknown",
+                "recommendations": ["Please check your input and try again"],
+                "model_used": "Error",
+                "bmi": 0.0
+            }
 
-            # Initialize feature dictionary
-            features_dict = {col: 0.0 for col in feature_columns}
-
-            # Basic features with proper scaling (same as training)
-            features_dict['age'] = (age - 41.885856) / 22.51683987161702
-            features_dict['bmi'] = (bmi - 27.320767099999994) / 6.636783416648368
-            features_dict['hbA1c_level'] = (hba1c_val - 6.0) / 1.5
-            features_dict['blood_glucose_level'] = (glucose_val - 120) / 40
-
-            # Gender encoding
-            if 'gender_Female' in features_dict:
-                features_dict['gender_Female'] = 1.0 if gender == 'female' else 0.0
-            if 'gender_Male' in features_dict:
-                features_dict['gender_Male'] = 1.0 if gender == 'male' else 0.0
-            
-            # Gestational history (for women-specific model)
-            gestational_history = user_input.get('gestationalHistory', False)
-            if 'gestational_history' in features_dict and gender == 'female':
-                features_dict['gestational_history'] = 1.0 if gestational_history else 0.0
-
-            # Smoking history encoding
-            self._encode_smoking_history(features_dict, smoking)
-            
-            # BMI categories
-            self._encode_bmi_categories(features_dict, bmi)
-            
-            # Age groups and risk categories
-            self._encode_age_categories(features_dict, age)
-
-            # Convert to numpy array in correct order
-            feature_array = np.array([features_dict[col] for col in feature_columns]).reshape(1, -1)
-            
-            logger.info(f"✅ Generated {len(feature_columns)} features for {model_type} model")
-            logger.info(f"🔬 Clinical estimates - HbA1c: {hba1c_val:.1f}, Glucose: {glucose_val:.0f}")
-            
-            return feature_array
-
-        except Exception as e:
-            logger.error(f"❌ Error in {model_type} model preprocessing: {str(e)}")
-            raise
-    
-    # -------------------------------
-    # ✅ Helper methods for encoding
-    # -------------------------------
-    def _estimate_hba1c(self, user_input: Dict[str, Any], age: float, bmi: float) -> float:
-        """Estimate HbA1c based on risk factors"""
-        hba1c_val = user_input.get('hbA1c_level')
-        if hba1c_val is not None:
-            return float(hba1c_val)
-            
-        # Estimate based on risk factors
-        base_hba1c = 5.2  # Normal baseline
-        if age > 45: base_hba1c += 0.2
-        if bmi > 30: base_hba1c += 0.4
-        elif bmi > 25: base_hba1c += 0.2
-        if user_input.get('familyHistory') == 'yes': base_hba1c += 0.3
-        if user_input.get('physicalActivity') == 'low': base_hba1c += 0.3
-        if user_input.get('bloodPressure') == 'high': base_hba1c += 0.2
-        if user_input.get('cholesterol') == 'high': base_hba1c += 0.2
-        if user_input.get('smoking', '').lower() in ['yes', 'current']: base_hba1c += 0.1
+    def _calculate_risk_fallback(self, features: Dict[str, float]) -> float:
+        """Simple risk calculation fallback"""
+        risk_score = 0.0
         
-        return min(base_hba1c, 8.0)  # Cap at reasonable max
-    
-    def _estimate_glucose(self, user_input: Dict[str, Any], age: float, bmi: float) -> float:
-        """Estimate glucose based on risk factors"""
-        glucose_val = user_input.get('blood_glucose_level')
-        if glucose_val is not None:
-            return float(glucose_val)
+        # Age factor
+        if features['age'] > 45:
+            risk_score += 0.2
+        elif features['age'] > 35:
+            risk_score += 0.1
             
-        # Estimate based on risk factors
-        base_glucose = 90  # Normal baseline
-        if age > 45: base_glucose += 5
-        if bmi > 30: base_glucose += 15
-        elif bmi > 25: base_glucose += 8
-        if user_input.get('familyHistory') == 'yes': base_glucose += 10
-        if user_input.get('physicalActivity') == 'low': base_glucose += 10
-        if user_input.get('bloodPressure') == 'high': base_glucose += 8
-        if user_input.get('cholesterol') == 'high': base_glucose += 5
-        
-        return min(base_glucose, 180)  # Cap at reasonable max
-    
-    def _encode_smoking_history(self, features_dict: dict, smoking: str):
-        """Encode smoking history"""
-        if smoking in ['no', 'never']:
-            if 'smoking_history_never' in features_dict:
-                features_dict['smoking_history_never'] = 1.0
-        elif smoking in ['yes', 'current']:
-            if 'smoking_history_current' in features_dict:
-                features_dict['smoking_history_current'] = 1.0
-        elif smoking == 'former':
-            if 'smoking_history_former' in features_dict:
-                features_dict['smoking_history_former'] = 1.0
-        else:
-            # Default to never
-            if 'smoking_history_never' in features_dict:
-                features_dict['smoking_history_never'] = 1.0
-    
-    def _encode_bmi_categories(self, features_dict: dict, bmi: float):
-        """Encode BMI categories and risk levels"""
-        if bmi < 18.5:
-            if 'bmi_category_Underweight' in features_dict:
-                features_dict['bmi_category_Underweight'] = 1.0
-            if 'bmi_risk_level_underweight' in features_dict:
-                features_dict['bmi_risk_level_underweight'] = 1.0
-        elif bmi < 25:
-            if 'bmi_category_Normal' in features_dict:
-                features_dict['bmi_category_Normal'] = 1.0
-            if 'bmi_risk_level_normal' in features_dict:
-                features_dict['bmi_risk_level_normal'] = 1.0
-        elif bmi < 30:
-            if 'bmi_category_Overweight' in features_dict:
-                features_dict['bmi_category_Overweight'] = 1.0
-            if 'bmi_risk_level_overweight' in features_dict:
-                features_dict['bmi_risk_level_overweight'] = 1.0
-        elif bmi < 35:
-            if 'bmi_category_Obese' in features_dict:
-                features_dict['bmi_category_Obese'] = 1.0
-            if 'bmi_risk_level_obese_1' in features_dict:
-                features_dict['bmi_risk_level_obese_1'] = 1.0
-        else:
-            if 'bmi_category_Obese' in features_dict:
-                features_dict['bmi_category_Obese'] = 1.0
-            if 'bmi_risk_level_obese_2' in features_dict:
-                features_dict['bmi_risk_level_obese_2'] = 1.0
-    
-    def _encode_age_categories(self, features_dict: dict, age: float):
-        """Encode age groups and diabetes risk categories"""
-        if age < 18:
-            if 'age_group_Child' in features_dict:
-                features_dict['age_group_Child'] = 1.0
-            if 'age_diabetes_risk_low_risk' in features_dict:
-                features_dict['age_diabetes_risk_low_risk'] = 1.0
-        elif age < 45:
-            if 'age_group_Adult' in features_dict:
-                features_dict['age_group_Adult'] = 1.0
-            if 'age_diabetes_risk_low_risk' in features_dict:
-                features_dict['age_diabetes_risk_low_risk'] = 1.0
-        elif age < 65:
-            if 'age_group_Middle-aged' in features_dict:
-                features_dict['age_group_Middle-aged'] = 1.0
-            if 'age_diabetes_risk_moderate_risk' in features_dict:
-                features_dict['age_diabetes_risk_moderate_risk'] = 1.0
-        else:
-            if 'age_group_Senior' in features_dict:
-                features_dict['age_group_Senior'] = 1.0
-            if 'age_diabetes_risk_high_risk' in features_dict:
-                features_dict['age_diabetes_risk_high_risk'] = 1.0
-
-    # -------------------------------
-    # ✅ Fallback / rule-based prediction
-    # -------------------------------
-    def _rule_based_prediction(self, user_input: Dict[str, Any], bmi: float) -> Dict[str, Any]:
-        """
-        Simple rule-based prediction if ML model fails
-        """
-        risk = 10
+        # BMI factor
+        bmi = features['bmi']
         if bmi > 30:
-            risk += 20
-        age = float(user_input.get('age', 30))
-        if age > 50:
-            risk += 15
-
-        if risk > 50:
-            risk_level = "high (fallback)"
-        else:
-            risk_level = "low (fallback)"
-
-        recommendations = ["Please consult a doctor for proper testing."]
-
-        return {
-            "risk_percentage": risk,
-            "risk_level": risk_level,
-            "risk_color": "orange" if risk > 50 else "green",
-            "recommendations": recommendations,
-            "bmi": round(bmi, 1),
-            "model_used": "Fallback calculator",
-            "confidence": "N/A"
-        }
-
-    # -------------------------------
-    # ✅ Generate recommendations
-    # -------------------------------
-    def _generate_recommendations(self, user_input: Dict[str, Any], risk_level: str):
-        """
-        Generate comprehensive health recommendations based on risk level and user profile
-        """
-        recommendations = []
-        age = float(user_input.get('age', 30))
-        height = float(user_input.get('height', 170))
-        weight = float(user_input.get('weight', 70))
-        bmi = weight / ((height / 100) ** 2)
-        
-        if risk_level.lower().startswith("high"):
-            recommendations.extend([
-                "🏥 Consult with a healthcare provider within 2 weeks",
-                "🍽️ Follow a strict low-glycemic meal plan",
-                "💊 Discuss preventive medications (metformin) with doctor",
-                "🩸 Get comprehensive blood work (HbA1c, fasting glucose)",
-                "📋 Consider referral to endocrinologist"
-            ])
-            if bmi > 30:
-                recommendations.append("⚖️ Work with nutritionist for weight management")
-            if user_input.get('physicalActivity') == 'low':
-                recommendations.append("🏋️‍♂️ Start supervised exercise program")
-                
-        elif risk_level.lower().startswith("moderate"):
-            recommendations.extend([
-                "🍎 Follow diabetes prevention diet (low processed foods)",
-                "🏋️‍♂️ Increase physical activity to 200+ min/week",
-                "🩺 Schedule health check-ups every 6 months",
-                "📊 Monitor blood pressure and cholesterol regularly"
-            ])
-            if bmi > 25:
-                recommendations.append("⚖️ Work towards achieving ideal body weight")
-            if user_input.get('smoking') in ['yes', 'current']:
-                recommendations.append("🚭 Consider smoking cessation programs")
-                
-        else:  # Low risk
-            recommendations.extend([
-                "🥗 Maintain a balanced, nutrient-rich diet",
-                "🏃‍♂️ Continue regular physical activity (150+ min/week)",
-                "📅 Schedule annual health screenings",
-                "💧 Stay well-hydrated and limit sugary drinks"
-            ])
-            if age > 40:
-                recommendations.append("🧪 Annual diabetes screening recommended")
-                
-        return recommendations
-
-    # -------------------------------
-    # ✅ Load ML models (dual system + legacy)
-    # -------------------------------
-    def load_models(self):
-        """
-        Load dual ML models (general + women-specific), feature columns, and legacy models
-        """
-        try:
-            # Load dual model system
-            self._load_dual_models()
+            risk_score += 0.3
+        elif bmi > 25:
+            risk_score += 0.15
             
-            # Load legacy model for backward compatibility
-            self._load_legacy_model()
-                
-        except Exception as e:
-            logger.error(f"❌ Failed to load models: {str(e)}")
-            # Set fallback values
-            self.rf_model = None
-            self.general_model = None
-            self.women_model = None
-            self.feature_columns = ["age", "bmi", "hbA1c_level", "blood_glucose_level",
-                                  "gender_Female", "gender_Male",
-                                  "smoking_history_never", "smoking_history_current", "smoking_history_former"]
-            self.general_features = self.feature_columns
-            self.women_features = self.feature_columns
-            self.scaler = None
-    
-    def _load_dual_models(self):
-        """Load the dual model system (general + women-specific)"""
-        
-        # Load general model (compressed version)
-        general_model_path = self.models_path / "diabetes_general_model_compressed_lvl3.pkl"
-        fallback_path = self.models_path / "diabetes_general_model.pkl"
-        
-        if general_model_path.exists():
-            try:
-                logger.info(f"🔄 Attempting to load compressed model: {general_model_path}")
-                self.general_model = joblib.load(general_model_path)
-                logger.info("✅ General diabetes model (compressed) loaded successfully")
-            except Exception as e:
-                logger.error(f"❌ Failed to load compressed model: {str(e)}")
-                self.general_model = None
-        elif fallback_path.exists():
-            try:
-                logger.info(f"🔄 Attempting to load original model: {fallback_path}")
-                self.general_model = joblib.load(fallback_path)
-                logger.info("✅ General diabetes model (original) loaded successfully")
-            except Exception as e:
-                logger.error(f"❌ Failed to load original model: {str(e)}")
-                self.general_model = None
-        else:
-            logger.warning("❌ General diabetes model not found (neither compressed nor original)")
+        # Medical history
+        if features['hypertension']:
+            risk_score += 0.2
+        if features['heart_disease']:
+            risk_score += 0.15
+        if features['family_history']:
+            risk_score += 0.25
             
-        # Load women's model  
-        women_model_path = self.models_path / "diabetes_women_model.pkl"
-        if women_model_path.exists():
-            try:
-                logger.info(f"🔄 Attempting to load women's model: {women_model_path}")
-                self.women_model = joblib.load(women_model_path)
-                logger.info("✅ Women-specific diabetes model loaded successfully")
-            except Exception as e:
-                logger.error(f"❌ Failed to load women's model: {str(e)}")
-                self.women_model = None
-        else:
-            logger.warning("❌ Women-specific diabetes model not found")
+        # Lifestyle factors
+        if features['smoking_history'] == 2:  # current smoker
+            risk_score += 0.1
+        if features['physical_activity'] < 2:
+            risk_score += 0.1
+        if features['stress_level'] == 2:  # high stress
+            risk_score += 0.05
             
-        # Load general model features
-        general_features_path = self.models_path / "general_model_features.json"
-        if general_features_path.exists():
-            with open(general_features_path, 'r') as f:
-                feature_data = json.load(f)
-                self.general_features = feature_data.get('features', [])
-            logger.info(f"✅ General model features loaded: {len(self.general_features)} features")
-        else:
-            logger.warning("❌ General model features not found, using default")
-            self.general_features = self._get_default_features()
-            
-        # Load women's model features
-        women_features_path = self.models_path / "women_model_features.json"
-        if women_features_path.exists():
-            with open(women_features_path, 'r') as f:
-                feature_data = json.load(f)
-                self.women_features = feature_data.get('features', [])
-            logger.info(f"✅ Women's model features loaded: {len(self.women_features)} features")
-        else:
-            logger.warning("❌ Women's model features not found, using default")
-            self.women_features = self._get_default_features()
-            
-        # Check if dual models are ready
-        if self.general_model and self.women_model:
-            logger.info("🎉 Dual model system ready - Gender-specific predictions enabled!")
-        else:
-            logger.warning("⚠️ Dual model system incomplete - falling back to legacy model")
-    
-    def _load_legacy_model(self):
-        """Load legacy single model for backward compatibility"""
-        # Load legacy Random Forest model
-        rf_model_path = self.models_path / "diabetes_rf_tuned.pkl"
-        if rf_model_path.exists():
-            self.rf_model = joblib.load(rf_model_path)
-            logger.info("✅ Legacy Random Forest model loaded successfully")
-        else:
-            logger.warning("❌ Legacy Random Forest model not found")
-            
-        # Load legacy feature columns
-        feature_cols_path = self.models_path / "feature_columns.json"
-        if feature_cols_path.exists():
-            with open(feature_cols_path, 'r') as f:
-                feature_data = json.load(f)
-                # Handle both list and dict formats
-                if isinstance(feature_data, list):
-                    self.feature_columns = feature_data
-                elif isinstance(feature_data, dict):
-                    self.feature_columns = feature_data.get('features', list(feature_data.keys()))
-                else:
-                    raise ValueError("Unexpected feature columns format")
-            logger.info(f"✅ Legacy feature columns loaded: {len(self.feature_columns)} features")
-        else:
-            logger.warning("❌ Legacy feature columns file not found, using default")
-            self.feature_columns = self._get_default_features()
-        
-        # Load the enhanced preprocessing scaler
-        scaler_path = self.processed_data_path / "feature_scaler.pkl"
-        if scaler_path.exists():
-            self.scaler = joblib.load(scaler_path)
-            logger.info("✅ Enhanced preprocessing scaler loaded successfully")
-        else:
-            logger.warning("❌ Enhanced preprocessing scaler not found, will use manual scaling")
-            self.scaler = None
-    
-    def _get_default_features(self):
-        """Get default feature set"""
-        return [
-            "age", "bmi", "hbA1c_level", "blood_glucose_level",
-            "gender_Female", "gender_Male", 
-            "smoking_history_No Info", "smoking_history_current", "smoking_history_ever", 
-            "smoking_history_former", "smoking_history_never", "smoking_history_not current",
-            "bmi_category_Normal", "bmi_category_Obese", "bmi_category_Overweight", "bmi_category_Underweight",
-            "age_group_Adult", "age_group_Child", "age_group_Middle-aged", "age_group_Senior",
-            "bmi_risk_level_normal", "bmi_risk_level_obese_1", "bmi_risk_level_obese_2", 
-            "bmi_risk_level_overweight", "bmi_risk_level_underweight",
-            "age_diabetes_risk_high_risk", "age_diabetes_risk_low_risk", 
-            "age_diabetes_risk_moderate_risk", "age_diabetes_risk_very_high_risk"
-        ]
-
-
-# Create a global instance of the prediction service
-prediction_service = DiabetesPredictionService()
+        return min(risk_score, 0.95)  # Cap at 95%

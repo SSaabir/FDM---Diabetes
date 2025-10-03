@@ -34,8 +34,12 @@ const Prediction = () => {
     familyHistory: '',
     physicalActivity: '',
     smoking: '',
-    bloodPressure: '',
-    cholesterol: '',
+    hypertension: '',
+    heartDisease: '',
+    sleepHours: '',
+    dietPattern: '',
+    alcoholIntake: '',
+    medicationUse: '',
     gestationalHistory: false
   });
   
@@ -58,9 +62,13 @@ const Prediction = () => {
         weight: 60,
         familyHistory: 'no',
         physicalActivity: 'high',
-        smoking: 'no',
-        bloodPressure: 'normal',
-        cholesterol: 'normal',
+        smoking: 'never',
+        hypertension: 'no',
+        heartDisease: 'no',
+        sleepHours: '8',
+        dietPattern: 'balanced',
+        alcoholIntake: 'none',
+        medicationUse: 'no',
         gestationalHistory: false
       },
       // Moderate risk middle-aged male
@@ -72,8 +80,12 @@ const Prediction = () => {
         familyHistory: 'yes',
         physicalActivity: 'moderate',
         smoking: 'former',
-        bloodPressure: 'elevated',
-        cholesterol: 'borderline',
+        hypertension: 'yes',
+        heartDisease: 'no',
+        sleepHours: '6',
+        dietPattern: 'high-carb',
+        alcoholIntake: 'occasional',
+        medicationUse: 'yes',
         gestationalHistory: false
       },
       // High risk female with gestational history
@@ -84,9 +96,13 @@ const Prediction = () => {
         weight: 90,
         familyHistory: 'yes',
         physicalActivity: 'low',
-        smoking: 'no',
-        bloodPressure: 'high',
-        cholesterol: 'high',
+        smoking: 'never',
+        hypertension: 'yes',
+        heartDisease: 'yes',
+        sleepHours: '5',
+        dietPattern: 'high-carb',
+        alcoholIntake: 'regular',
+        medicationUse: 'yes',
         gestationalHistory: true
       },
       // High risk senior male
@@ -97,9 +113,13 @@ const Prediction = () => {
         weight: 95,
         familyHistory: 'yes',
         physicalActivity: 'low',
-        smoking: 'yes',
-        bloodPressure: 'high',
-        cholesterol: 'high',
+        smoking: 'current',
+        hypertension: 'yes',
+        heartDisease: 'yes',
+        sleepHours: '6',
+        dietPattern: 'high-carb',
+        alcoholIntake: 'regular',
+        medicationUse: 'yes',
         gestationalHistory: false
       },
       // Random moderate risk female
@@ -110,9 +130,13 @@ const Prediction = () => {
         weight: 75,
         familyHistory: 'unknown',
         physicalActivity: 'moderate',
-        smoking: 'no',
-        bloodPressure: 'normal',
-        cholesterol: 'borderline',
+        smoking: 'never',
+        hypertension: 'no',
+        heartDisease: 'no',
+        sleepHours: '7',
+        dietPattern: 'balanced',
+        alcoholIntake: 'occasional',
+        medicationUse: 'no',
         gestationalHistory: false
       }
     ];
@@ -176,8 +200,12 @@ const Prediction = () => {
         familyHistory: formData.familyHistory,
         physicalActivity: formData.physicalActivity,
         smoking: formData.smoking,
-        bloodPressure: formData.bloodPressure,
-        cholesterol: formData.cholesterol,
+        hypertension: formData.hypertension,
+        heartDisease: formData.heartDisease,
+        sleepHours: parseInt(formData.sleepHours),
+        dietPattern: formData.dietPattern,
+        alcoholIntake: formData.alcoholIntake,
+        medicationUse: formData.medicationUse,
         gestationalHistory: formData.gender === 'female' ? formData.gestationalHistory : false
       };
 
@@ -390,32 +418,43 @@ const Prediction = () => {
 
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Blood Pressure 📊</Label>
-                      <Select value={formData.bloodPressure} onValueChange={(value) => handleInputChange('bloodPressure', value)}>
+                      <Label>Hypertension History 🩺</Label>
+                      <Select value={formData.hypertension} onValueChange={(value) => handleInputChange('hypertension', value)}>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select level" />
+                          <SelectValue placeholder="Select hypertension status" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="normal">Normal</SelectItem>
-                          <SelectItem value="elevated">Elevated</SelectItem>
-                          <SelectItem value="high">High</SelectItem>
+                          <SelectItem value="no">No</SelectItem>
+                          <SelectItem value="yes">Yes</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Cholesterol Level 🧪</Label>
-                      <Select value={formData.cholesterol} onValueChange={(value) => handleInputChange('cholesterol', value)}>
+                      <Label>Heart Disease History ❤️</Label>
+                      <Select value={formData.heartDisease} onValueChange={(value) => handleInputChange('heartDisease', value)}>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select level" />
+                          <SelectValue placeholder="Select heart disease status" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="normal">Normal</SelectItem>
-                          <SelectItem value="borderline">Borderline</SelectItem>
-                          <SelectItem value="high">High</SelectItem>
+                          <SelectItem value="no">No</SelectItem>
+                          <SelectItem value="yes">Yes</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Current Medication Use 💊</Label>
+                    <Select value={formData.medicationUse} onValueChange={(value) => handleInputChange('medicationUse', value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select medication status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="no">No medications</SelectItem>
+                        <SelectItem value="yes">Taking medications</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>
@@ -449,12 +488,60 @@ const Prediction = () => {
                         <SelectValue placeholder="Select smoking status" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="no">Non-smoker</SelectItem>
+                        <SelectItem value="never">Never smoked</SelectItem>
                         <SelectItem value="former">Former smoker</SelectItem>
-                        <SelectItem value="yes">Current smoker</SelectItem>
+                        <SelectItem value="current">Current smoker</SelectItem>
+                        <SelectItem value="not current">Not current smoker</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Sleep Hours per Night 😴</Label>
+                    <Select value={formData.sleepHours} onValueChange={(value) => handleInputChange('sleepHours', value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select sleep hours" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="4">4 hours or less</SelectItem>
+                        <SelectItem value="5">5 hours</SelectItem>
+                        <SelectItem value="6">6 hours</SelectItem>
+                        <SelectItem value="7">7 hours</SelectItem>
+                        <SelectItem value="8">8 hours</SelectItem>
+                        <SelectItem value="9">9 hours or more</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Diet Pattern 🍎</Label>
+                    <Select value={formData.dietPattern} onValueChange={(value) => handleInputChange('dietPattern', value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select diet pattern" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="balanced">Balanced diet</SelectItem>
+                        <SelectItem value="high-carb">High carbohydrate</SelectItem>
+                        <SelectItem value="low-carb">Low carbohydrate</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Alcohol Intake 🍷</Label>
+                  <Select value={formData.alcoholIntake} onValueChange={(value) => handleInputChange('alcoholIntake', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select alcohol consumption" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No alcohol</SelectItem>
+                      <SelectItem value="occasional">Occasional (1-2 drinks/week)</SelectItem>
+                      <SelectItem value="regular">Regular (3+ drinks/week)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 

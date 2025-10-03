@@ -1,56 +1,27 @@
 """
-Prediction Schemas
+Prediction Schemas - Simplified Version
 Pydantic models for diabetes prediction API
 """
 from pydantic import BaseModel, Field, validator
 from typing import List, Optional
-from enum import Enum
-
-class GenderEnum(str, Enum):
-    male = "male"
-    female = "female"
-    other = "other"
-
-class ActivityLevelEnum(str, Enum):
-    low = "low"
-    moderate = "moderate"
-    high = "high"
-
-class BloodPressureEnum(str, Enum):
-    normal = "normal"
-    elevated = "elevated"
-    high = "high"
-
-class CholesterolEnum(str, Enum):
-    normal = "normal"
-    borderline = "borderline"
-    high = "high"
-
-class FamilyHistoryEnum(str, Enum):
-    yes = "yes"
-    no = "no"
-    unknown = "unknown"
-
-class SmokingEnum(str, Enum):
-    yes = "yes"
-    no = "no"
-    former = "former"
 
 class PredictionRequest(BaseModel):
-    """Request model for diabetes risk prediction - supports dual model system"""
+    """Simplified request model for diabetes risk prediction"""
     
     age: int = Field(..., ge=18, le=120, description="Age in years")
-    gender: GenderEnum = Field(..., description="Gender")
+    gender: str = Field(..., description="Gender (male/female)")
     height: float = Field(..., ge=100, le=250, description="Height in centimeters")
     weight: float = Field(..., ge=30, le=300, description="Weight in kilograms")
-    familyHistory: FamilyHistoryEnum = Field(..., description="Family history of diabetes")
-    physicalActivity: ActivityLevelEnum = Field(..., description="Physical activity level")
-    smoking: SmokingEnum = Field(..., description="Smoking status")
-    bloodPressure: BloodPressureEnum = Field(..., description="Blood pressure level")
-    cholesterol: CholesterolEnum = Field(..., description="Cholesterol level")
-    
-    # Additional field for women-specific model
-    gestationalHistory: Optional[bool] = Field(False, description="History of gestational diabetes (for women)")
+    family_history: bool = Field(False, description="Family history of diabetes")
+    physical_activity: float = Field(2.5, ge=0, le=10, description="Physical activity hours per week")
+    smoking_history: str = Field("never", description="Smoking history")
+    hypertension: bool = Field(False, description="Has hypertension")
+    heart_disease: bool = Field(False, description="Has heart disease")
+    sleep_hours: float = Field(7.5, ge=4, le=12, description="Sleep hours per night")
+    diet_pattern: str = Field("balanced", description="Diet pattern")
+    alcohol_intake: str = Field("none", description="Alcohol consumption level")
+    medication_use: bool = Field(False, description="Currently using medication")
+    stress_level: str = Field("moderate", description="Stress level")
 
     @validator('age')
     def validate_age(cls, v):
@@ -69,78 +40,47 @@ class PredictionRequest(BaseModel):
         if v < 30 or v > 300:
             raise ValueError('Weight must be between 30 and 300 kg')
         return v
-    
-    @validator('gestationalHistory')
-    def validate_gestational_history(cls, v, values):
-        # Only relevant for females
-        if values.get('gender') == 'female':
-            return v if v is not None else False
-        return False  # Default to False for non-females
 
     class Config:
         json_schema_extra = {
             "example": {
                 "age": 35,
-                "gender": "female",
-                "height": 165,
-                "weight": 65,
-                "familyHistory": "no",
-                "physicalActivity": "moderate",
-                "smoking": "no",
-                "bloodPressure": "normal",
-                "cholesterol": "normal",
-                "gestationalHistory": False
+                "gender": "male",
+                "height": 175,
+                "weight": 80,
+                "family_history": False,
+                "physical_activity": 3.0,
+                "smoking_history": "never",
+                "hypertension": False,
+                "heart_disease": False,
+                "sleep_hours": 7.5,
+                "diet_pattern": "balanced",
+                "alcohol_intake": "none",
+                "medication_use": False,
+                "stress_level": "moderate"
             }
         }
 
 class PredictionResponse(BaseModel):
-    """Response model for diabetes risk prediction - includes dual model info"""
+    """Simplified response model for diabetes risk prediction"""
     
-    risk_percentage: float = Field(..., description="Diabetes risk percentage (0-100)")
-    risk_level: str = Field(..., description="Risk level: low, moderate, or high")
-    risk_color: str = Field(..., description="Color code for UI: green, orange, or red")
-    recommendations: List[str] = Field(..., description="Personalized health recommendations")
+    risk_probability: float = Field(..., description="Diabetes risk probability (0-1)")
+    risk_level: str = Field(..., description="Risk level: Low, Moderate, or High")
+    recommendations: List[str] = Field(..., description="Health recommendations")
     bmi: float = Field(..., description="Calculated BMI")
-    model_used: str = Field(..., description="ML model used for prediction")
-    confidence: str = Field(..., description="Prediction confidence: low, moderate, or high")
-    
-    # Additional fields for dual model system
-    gender_detected: Optional[str] = Field(None, description="Detected gender for model routing")
-    gestationalHistory: Optional[bool] = Field(None, description="Gestational diabetes history considered")
+    model_used: str = Field(..., description="Model used for prediction")
 
     class Config:
         json_schema_extra = {
             "example": {
-                "risk_percentage": 25.5,
-                "risk_level": "low",
-                "risk_color": "green",
+                "risk_probability": 0.25,
+                "risk_level": "Low",
                 "recommendations": [
-                    "🍎 Maintain a balanced, healthy diet",
-                    "🏃‍♀️ Continue regular physical activity",
-                    "📊 Monitor your health annually"
+                    "Maintain a healthy lifestyle",
+                    "Regular exercise and balanced diet",
+                    "Annual health checkups"
                 ],
                 "bmi": 26.1,
-                "model_used": "General Model",
-                "confidence": "high",
-                "gender_detected": "female",
-                "gestationalHistory": False
+                "model_used": "Random Forest Model"
             }
         }
-
-class ModelInfoResponse(BaseModel):
-    """Response model for ML model information"""
-    
-    rf_model_loaded: bool = Field(..., description="Whether Random Forest model is loaded")
-    feature_columns_loaded: bool = Field(..., description="Whether feature columns are loaded")
-    scaler_loaded: bool = Field(..., description="Whether feature scaler is loaded")
-    total_features: int = Field(..., description="Number of features in the model")
-    model_type: str = Field(..., description="Type of ML model")
-    version: str = Field(..., description="Model version")
-
-class ValidationResponse(BaseModel):
-    """Response model for input validation"""
-    
-    valid: bool = Field(..., description="Whether the input is valid")
-    errors: List[str] = Field(..., description="List of validation errors")
-    calculated_bmi: Optional[float] = Field(None, description="Calculated BMI if height/weight provided")
-    warnings: List[str] = Field(..., description="List of warnings")

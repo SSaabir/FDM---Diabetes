@@ -1,14 +1,11 @@
 """
-Prediction API Routes
+Prediction API Routes - Simplified Version
 Handles diabetes risk prediction requests
 """
-from fastapi import APIRouter, HTTPException, Depends, Request
-from typing import Any
+from fastapi import APIRouter, HTTPException, Depends
 import logging
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 
-from ..services.prediction import prediction_service
+from ..services.prediction import DiabetesPredictionService
 from ..schemas.prediction import PredictionRequest, PredictionResponse
 from ..utils.auth import get_current_user
 from ..models.user import User
@@ -16,339 +13,84 @@ from ..models.user import User
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-# Create limiter instance
-limiter = Limiter(key_func=get_remote_address)
+# Initialize prediction service
+prediction_service = DiabetesPredictionService()
 
 @router.get("/version")
 async def get_version():
-    """Get API version and deployment timestamp"""
-    import datetime
+    """Get API version"""
     return {
-        "version": "1.2.0-model-fix",
-        "timestamp": datetime.datetime.now().isoformat(),
-        "status": "model loading fix deployed"
+        "version": "2.0.0-clean",
+        "status": "clean restart version"
     }
 
-# -------------------------------
-# ✅ Sanitization helper
-# -------------------------------
-def sanitize_input(field: str, value: Any) -> Any:
-    if isinstance(value, str):
-        value = value.strip().replace("<", "").replace(">", "")
-        # Only apply numeric sanitization to actual numeric fields
-        if field in ['age', 'height', 'weight', 'hbA1c_level', 'blood_glucose_level']:
-            value = ''.join(c for c in value if c.isdigit() or c == '.')
-            try:
-                value = float(value)
-            except ValueError:
-                value = 0.0
-        if field == 'gender':
-            value = value.lower()
-            if value not in ['male', 'female', 'other']:
-                value = ''
-        if field in ['smoking', 'physicalActivity', 'familyHistory', 'bloodPressure', 'cholesterol']:
-            value = value.lower()
-    if isinstance(value, (int, float)):
-        return value
-    return value
-
-# -------------------------------
-# ✅ Public Predict diabetes risk (no auth required)
-# -------------------------------
-@router.post("/predict-public", response_model=PredictionResponse)
-@limiter.limit("30/minute")  # Increased from 10/minute
-async def predict_diabetes_risk_public(
-    request: Request,
-    prediction_request: PredictionRequest
-):
-    try:
-        user_input = prediction_request.dict()
-        
-        # Log the received data for debugging
-        logger.info(f"🔍 Received prediction request: {user_input}")
-        
-        for field in user_input:
-            user_input[field] = sanitize_input(field, user_input[field])
-        prediction_result = prediction_service.predict_diabetes_risk(user_input)
-        logger.info(f"Public prediction: {prediction_result['risk_level']} risk")
-        return PredictionResponse(**prediction_result)
-    except ValueError as e:
-        logger.error(f"Public prediction error: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"Unexpected error in public prediction: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal server error during prediction")
-
-# -------------------------------
-# ✅ Predict diabetes risk (authenticated)
-# -------------------------------
 @router.post("/predict", response_model=PredictionResponse)
-@limiter.limit("20/minute")  # Increased from 5/minute
 async def predict_diabetes_risk(
-    request: Request,
-    prediction_request: PredictionRequest,
+    request: PredictionRequest,
     current_user: User = Depends(get_current_user)
 ):
+    """
+    Predict diabetes risk based on user input
+    Requires authentication
+    """
     try:
-        user_input = prediction_request.dict()
-        for field in user_input:
-            user_input[field] = sanitize_input(field, user_input[field])
-        prediction_result = prediction_service.predict_diabetes_risk(user_input)
-        logger.info(f"Prediction for user {current_user.id}: {prediction_result['risk_level']} risk")
-        return PredictionResponse(**prediction_result)
+        logger.info(f"Prediction request from user: {current_user.email}")
+        
+        # Convert request to dict
+        user_input = request.dict()
+        
+        # Get prediction
+        result = prediction_service.predict_diabetes_risk(user_input)
+        
+        # Check for errors
+        if "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
+        
+        logger.info(f"Prediction successful: {result['risk_level']} risk")
+        
+        return PredictionResponse(**result)
+        
     except ValueError as e:
-        logger.error(f"Prediction error for user {current_user.id}: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.error(f"Validation error: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Invalid input: {str(e)}")
     except Exception as e:
-        logger.error(f"Unexpected error in prediction for user {current_user.id}: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal server error during prediction")
+        logger.error(f"Prediction error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
-# -------------------------------
-# ✅ Get model information
-# -------------------------------
-@router.get("/model-info")
-@limiter.limit("5/minute")
-async def get_model_info(request: Request):
+@router.get("/health")
+async def health_check():
+    """Check if prediction service is working"""
     try:
-        model_info = {
-            "rf_model_loaded": prediction_service.rf_model is not None,
-            "feature_columns_loaded": prediction_service.feature_columns is not None,
-            "scaler_loaded": prediction_service.scaler is not None,
-            "total_features": len(prediction_service.feature_columns) if prediction_service.feature_columns else 0,
-            "model_type": "Random Forest Classifier",
-            "version": "1.0"
+        # Test with sample data
+        test_input = {
+            "age": 30,
+            "gender": "male",
+            "height": 175,
+            "weight": 70,
+            "family_history": False,
+            "physical_activity": 3.0,
+            "smoking_history": "never",
+            "hypertension": False,
+            "heart_disease": False,
+            "sleep_hours": 8,
+            "diet_pattern": "balanced",
+            "alcohol_intake": "none",
+            "medication_use": False,
+            "stress_level": "low"
         }
-        return model_info
-    except Exception as e:
-        logger.error(f"Error retrieving model info: {str(e)}")
-        raise HTTPException(status_code=500, detail="Error retrieving model information")
-
-# -------------------------------
-# ✅ Validate input only
-# -------------------------------
-@router.post("/validate-input")
-@limiter.limit("5/minute")
-async def validate_prediction_input(
-    request: Request,
-    prediction_request: PredictionRequest,
-    current_user: User = Depends(get_current_user)
-):
-    try:
-        user_input = prediction_request.dict()
-        for field in user_input:
-            user_input[field] = sanitize_input(field, user_input[field])
-        validation_errors = []
-        age = user_input.get('age')
-        if age and (age < 18 or age > 120):
-            validation_errors.append("Age must be between 18 and 120")
-        height = user_input.get('height')
-        if height and (height < 100 or height > 250):
-            validation_errors.append("Height must be between 100 and 250 cm")
-        weight = user_input.get('weight')
-        if weight and (weight < 30 or weight > 300):
-            validation_errors.append("Weight must be between 30 and 300 kg")
-        bmi = None
-        if height and weight:
-            height_m = height / 100
-            bmi = weight / (height_m ** 2)
-            if bmi < 15 or bmi > 50:
-                validation_errors.append("Calculated BMI is outside normal range (15-50)")
-        return {
-            "valid": len(validation_errors) == 0,
-            "errors": validation_errors,
-            "calculated_bmi": round(bmi, 1) if bmi else None,
-            "warnings": []
-        }
-    except Exception as e:
-        logger.error(f"Error validating input: {str(e)}")
-        raise HTTPException(status_code=500, detail="Error validating input")
-
-@router.get("/debug/models")
-async def debug_models():
-    """Debug endpoint to check model files and loading status"""
-    from pathlib import Path
-    import os
-    
-    try:
-        models_path = Path(__file__).parent.parent.parent / "models"
         
-        # Check model files
-        model_files = {}
-        model_files_to_check = [
-            "diabetes_general_model.pkl",
-            "diabetes_general_model_compressed_lvl3.pkl", 
-            "diabetes_women_model.pkl",
-            "diabetes_model.pkl",
-            "diabetes_rf_tuned.pkl",
-            "general_model_features.json",
-            "women_model_features.json"
-        ]
-        
-        for file_name in model_files_to_check:
-            file_path = models_path / file_name
-            if file_path.exists():
-                size_mb = file_path.stat().st_size / (1024 * 1024)
-                model_files[file_name] = {
-                    "exists": True,
-                    "size_mb": round(size_mb, 2),
-                    "path": str(file_path)
-                }
-            else:
-                model_files[file_name] = {
-                    "exists": False,
-                    "size_mb": 0,
-                    "path": str(file_path)
-                }
-        
-        # Check prediction service status
-        service_status = {
-            "general_model_loaded": prediction_service.general_model is not None,
-            "women_model_loaded": prediction_service.women_model is not None,
-            "legacy_model_loaded": prediction_service.rf_model is not None,
-            "general_model_type": str(type(prediction_service.general_model)) if prediction_service.general_model else None,
-            "women_model_type": str(type(prediction_service.women_model)) if prediction_service.women_model else None,
-            "legacy_model_type": str(type(prediction_service.rf_model)) if prediction_service.rf_model else None
-        }
+        result = prediction_service.predict_diabetes_risk(test_input)
         
         return {
-            "models_path": str(models_path),
-            "models_path_exists": models_path.exists(),
-            "model_files": model_files,
-            "service_status": service_status,
-            "environment": os.environ.get("RAILWAY_ENVIRONMENT", "local")
+            "status": "healthy",
+            "model_loaded": prediction_service.model is not None,
+            "test_prediction": result["risk_level"]
         }
         
     except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
         return {
+            "status": "unhealthy",
             "error": str(e),
-            "models_path": "unknown",
-            "models_path_exists": False,
-            "model_files": {},
-            "service_status": {},
-            "environment": os.environ.get("RAILWAY_ENVIRONMENT", "local")
-        }
-
-@router.get("/debug/reload-models")
-async def debug_reload_models():
-    """Debug endpoint to force reload models and capture any errors"""
-    import traceback
-    import logging
-    
-    # Capture logs during reload
-    logs = []
-    
-    class ListHandler(logging.Handler):
-        def emit(self, record):
-            logs.append(self.format(record))
-    
-    # Add temporary handler to capture logs
-    list_handler = ListHandler()
-    list_handler.setLevel(logging.DEBUG)
-    logger = logging.getLogger()
-    logger.addHandler(list_handler)
-    
-    try:
-        # Try to reload the models
-        prediction_service.load_models()
-        
-        # Remove the handler
-        logger.removeHandler(list_handler)
-        
-        return {
-            "reload_successful": True,
-            "general_model_loaded": prediction_service.general_model is not None,
-            "women_model_loaded": prediction_service.women_model is not None,
-            "legacy_model_loaded": prediction_service.rf_model is not None,
-            "general_model_type": str(type(prediction_service.general_model)) if prediction_service.general_model else "None",
-            "women_model_type": str(type(prediction_service.women_model)) if prediction_service.women_model else "None",
-            "legacy_model_type": str(type(prediction_service.rf_model)) if prediction_service.rf_model else "None",
-            "logs": logs[-20:],  # Last 20 log entries
-            "message": "Models reloaded successfully"
-        }
-        
-    except Exception as e:
-        # Remove the handler
-        logger.removeHandler(list_handler)
-        
-        return {
-            "reload_successful": False,
-            "error": str(e),
-            "traceback": traceback.format_exc(),
-            "logs": logs[-20:],  # Last 20 log entries
-            "message": "Model reload failed"
-        }
-
-@router.post("/debug/echo-input")
-async def debug_echo_input(
-    prediction_request: PredictionRequest
-):
-    """Debug endpoint to echo back exactly what input was received"""
-    user_input = prediction_request.dict()
-    
-    # Calculate BMI for verification
-    height_m = user_input['height'] / 100
-    calculated_bmi = user_input['weight'] / (height_m ** 2)
-    
-    return {
-        "received_input": user_input,
-        "calculated_bmi": round(calculated_bmi, 2),
-        "input_summary": {
-            "age": user_input['age'],
-            "gender": user_input['gender'],
-            "bmi": round(calculated_bmi, 2),
-            "family_history": user_input['familyHistory'],
-            "physical_activity": user_input['physicalActivity'],
-            "smoking": user_input['smoking'],
-            "blood_pressure": user_input['bloodPressure'],
-            "cholesterol": user_input['cholesterol'],
-            "gestational_history": user_input.get('gestationalHistory', False)
-        }
-    }
-
-@router.post("/debug/features")
-async def debug_features(
-    prediction_request: PredictionRequest
-):
-    """Debug endpoint to show exactly what features are passed to the model"""
-    try:
-        user_input = prediction_request.dict()
-        
-        # Get the features that would be passed to the general model
-        if prediction_service.general_model and prediction_service.general_features:
-            # Preprocess for general model
-            feature_array = prediction_service._preprocess_for_model(
-                user_input, 
-                prediction_service.general_features, 
-                "General"
-            )
-            
-            # Create feature mapping
-            feature_mapping = {}
-            for i, feature_name in enumerate(prediction_service.general_features):
-                feature_mapping[feature_name] = float(feature_array[0][i])
-            
-            # Calculate raw prediction probabilities
-            prediction_proba = prediction_service.general_model.predict_proba(feature_array)[0]
-            
-            return {
-                "user_input": user_input,
-                "model_features": feature_mapping,
-                "feature_count": len(prediction_service.general_features),
-                "non_zero_features": {k: v for k, v in feature_mapping.items() if abs(v) > 0.001},
-                "prediction_probabilities": {
-                    "no_diabetes": float(prediction_proba[0]),
-                    "diabetes": float(prediction_proba[1])
-                },
-                "final_risk_percentage": float(prediction_proba[1] * 100)
-            }
-        else:
-            return {
-                "error": "Models not loaded",
-                "user_input": user_input
-            }
-            
-    except Exception as e:
-        return {
-            "error": str(e),
-            "user_input": user_input
+            "model_loaded": False
         }
