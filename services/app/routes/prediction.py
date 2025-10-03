@@ -212,3 +212,28 @@ async def debug_models():
             "service_status": {},
             "environment": os.environ.get("RAILWAY_ENVIRONMENT", "local")
         }
+
+@router.get("/debug/reload-models")
+async def debug_reload_models():
+    """Debug endpoint to force reload models and capture any errors"""
+    import traceback
+    
+    try:
+        # Try to reload the models
+        prediction_service.load_models()
+        
+        return {
+            "reload_successful": True,
+            "general_model_loaded": prediction_service.general_model is not None,
+            "women_model_loaded": prediction_service.women_model is not None,
+            "legacy_model_loaded": prediction_service.rf_model is not None,
+            "message": "Models reloaded successfully"
+        }
+        
+    except Exception as e:
+        return {
+            "reload_successful": False,
+            "error": str(e),
+            "traceback": traceback.format_exc(),
+            "message": "Model reload failed"
+        }
