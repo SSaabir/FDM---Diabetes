@@ -293,3 +293,51 @@ async def debug_echo_input(
             "gestational_history": user_input.get('gestationalHistory', False)
         }
     }
+
+@router.post("/debug/features")
+async def debug_features(
+    prediction_request: PredictionRequest
+):
+    """Debug endpoint to show exactly what features are passed to the model"""
+    try:
+        user_input = prediction_request.dict()
+        
+        # Get the features that would be passed to the general model
+        if prediction_service.general_model and prediction_service.general_features:
+            # Preprocess for general model
+            feature_array = prediction_service._preprocess_for_model(
+                user_input, 
+                prediction_service.general_features, 
+                "General"
+            )
+            
+            # Create feature mapping
+            feature_mapping = {}
+            for i, feature_name in enumerate(prediction_service.general_features):
+                feature_mapping[feature_name] = float(feature_array[0][i])
+            
+            # Calculate raw prediction probabilities
+            prediction_proba = prediction_service.general_model.predict_proba(feature_array)[0]
+            
+            return {
+                "user_input": user_input,
+                "model_features": feature_mapping,
+                "feature_count": len(prediction_service.general_features),
+                "non_zero_features": {k: v for k, v in feature_mapping.items() if abs(v) > 0.001},
+                "prediction_probabilities": {
+                    "no_diabetes": float(prediction_proba[0]),
+                    "diabetes": float(prediction_proba[1])
+                },
+                "final_risk_percentage": float(prediction_proba[1] * 100)
+            }
+        else:
+            return {
+                "error": "Models not loaded",
+                "user_input": user_input
+            }
+            
+    except Exception as e:
+        return {
+            "error": str(e),
+            "user_input": user_input
+        }
