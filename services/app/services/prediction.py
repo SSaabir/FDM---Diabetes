@@ -211,7 +211,10 @@ class DiabetesPredictionService:
                 return self._rule_based_prediction(user_input, bmi)
 
             # Apply multiple risk factors boost for medical appropriateness
-            risk_percentage = self._apply_multiple_risk_boost(user_input, risk_percentage, bmi)
+            # TEMPORARILY DISABLED FOR DEBUGGING
+            # risk_percentage = self._apply_multiple_risk_boost(user_input, risk_percentage, bmi)
+            
+            logger.info(f"🔍 DEBUG: Base risk before boost: {risk_percentage}%")
 
             # Risk level - Updated for medical appropriateness
             if risk_percentage < 15:  # Lowered from 30%
