@@ -24,7 +24,7 @@ class PredictionRequest(BaseModel):
     # Lifestyle factors
     physicalActivity: str = Field("moderate", description="Physical activity level")
     smoking: str = Field("never", description="Smoking history")
-    sleepHours: str = Field("7", description="Sleep hours per night")
+    sleepHours: int = Field(7, ge=4, le=12, description="Sleep hours per night")
     dietPattern: str = Field("balanced", description="Diet pattern")
     alcoholIntake: str = Field("none", description="Alcohol consumption level")
     
@@ -76,7 +76,7 @@ class PredictionRequest(BaseModel):
                 "medicationUse": "no",
                 "physicalActivity": "moderate",
                 "smoking": "never",
-                "sleepHours": "7",
+                "sleepHours": 7,
                 "dietPattern": "balanced",
                 "alcoholIntake": "none",
                 "hbA1c": 5.7,
