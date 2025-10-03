@@ -99,3 +99,9 @@ coverage/
 *.swp
 .DS_Store
 Thumbs.db
+
+# Large ML Models (use compressed versions instead)
+services/models/diabetes_general_model.pkl
+# Keep compressed models
+!services/models/*_compressed*.pkl
+!services/models/*_optimized*.pkl

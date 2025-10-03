@@ -541,13 +541,18 @@ class DiabetesPredictionService:
     def _load_dual_models(self):
         """Load the dual model system (general + women-specific)"""
         
-        # Load general model
-        general_model_path = self.models_path / "diabetes_general_model.pkl"
+        # Load general model (compressed version)
+        general_model_path = self.models_path / "diabetes_general_model_compressed_lvl3.pkl"
+        fallback_path = self.models_path / "diabetes_general_model.pkl"
+        
         if general_model_path.exists():
             self.general_model = joblib.load(general_model_path)
-            logger.info("✅ General diabetes model loaded successfully")
+            logger.info("✅ General diabetes model (compressed) loaded successfully")
+        elif fallback_path.exists():
+            self.general_model = joblib.load(fallback_path)
+            logger.info("✅ General diabetes model (original) loaded successfully")
         else:
-            logger.warning("❌ General diabetes model not found")
+            logger.warning("❌ General diabetes model not found (neither compressed nor original)")
             
         # Load women's model  
         women_model_path = self.models_path / "diabetes_women_model.pkl"
