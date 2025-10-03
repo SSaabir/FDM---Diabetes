@@ -233,7 +233,14 @@ const Prediction = () => {
 
       // Call the prediction API with enhanced error handling
       const response = await predictionAPI.predict(apiData);
-      console.log('🔍 DEBUG: API response:', response.data);
+      console.log('🔍 DEBUG: Full API response:', response);
+      console.log('🔍 DEBUG: API response data:', response?.data);
+      
+      // Check if response and response.data exist
+      if (!response || !response.data) {
+        throw new Error('Empty response from prediction API');
+      }
+      
       const result = apiHelpers.handleSuccess(response);
       
       if (result.success) {
