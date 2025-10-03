@@ -19,6 +19,16 @@ logger = logging.getLogger(__name__)
 # Create limiter instance
 limiter = Limiter(key_func=get_remote_address)
 
+@router.get("/version")
+async def get_version():
+    """Get API version and deployment timestamp"""
+    import datetime
+    return {
+        "version": "1.1.0-sanitization-fix",
+        "timestamp": datetime.datetime.now().isoformat(),
+        "status": "sanitization fix deployed"
+    }
+
 # -------------------------------
 # ✅ Sanitization helper
 # -------------------------------
