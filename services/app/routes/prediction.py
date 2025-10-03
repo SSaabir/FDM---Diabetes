@@ -24,9 +24,9 @@ async def get_version():
     """Get API version and deployment timestamp"""
     import datetime
     return {
-        "version": "1.1.0-sanitization-fix",
+        "version": "1.2.0-model-fix",
         "timestamp": datetime.datetime.now().isoformat(),
-        "status": "sanitization fix deployed"
+        "status": "model loading fix deployed"
     }
 
 # -------------------------------
