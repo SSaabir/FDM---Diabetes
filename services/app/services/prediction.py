@@ -210,11 +210,14 @@ class DiabetesPredictionService:
             else:
                 return self._rule_based_prediction(user_input, bmi)
 
-            # Risk level
-            if risk_percentage < 30:
+            # Apply multiple risk factors boost for medical appropriateness
+            risk_percentage = self._apply_multiple_risk_boost(user_input, risk_percentage, bmi)
+
+            # Risk level - Updated for medical appropriateness
+            if risk_percentage < 15:  # Lowered from 30%
                 risk_level = "low"
                 risk_color = "green"
-            elif risk_percentage < 70:
+            elif risk_percentage < 50:  # Lowered from 70%
                 risk_level = "moderate"
                 risk_color = "orange"
             else:
@@ -238,6 +241,66 @@ class DiabetesPredictionService:
         except Exception as e:
             logger.error(f"Prediction error: {str(e)}")
             raise ValueError(f"Failed to generate prediction: {str(e)}")
+    
+    # -------------------------------
+    # ✅ Multiple risk factors boost
+    # -------------------------------
+    def _apply_multiple_risk_boost(self, user_input: Dict[str, Any], base_risk: float, bmi: float) -> float:
+        """
+        Apply medical boost when multiple high-risk factors are present
+        """
+        risk_factors = []
+        age = int(user_input.get('age', 30))
+        
+        # Count high-risk factors
+        if age >= 65:
+            risk_factors.append("very_senior")
+        elif age >= 45:
+            risk_factors.append("senior")
+            
+        if bmi >= 35:
+            risk_factors.append("severe_obesity")
+        elif bmi >= 30:
+            risk_factors.append("obesity")
+        elif bmi >= 25:
+            risk_factors.append("overweight")
+            
+        if user_input.get('familyHistory') == 'yes':
+            risk_factors.append("family_history")
+            
+        if user_input.get('bloodPressure') == 'high':
+            risk_factors.append("hypertension")
+            
+        if user_input.get('cholesterol') == 'high':
+            risk_factors.append("high_cholesterol")
+            
+        if user_input.get('smoking') in ['yes', 'current']:
+            risk_factors.append("smoking")
+            
+        if user_input.get('physicalActivity') == 'low':
+            risk_factors.append("sedentary")
+        
+        # Apply progressive boost based on number of risk factors
+        boost_multiplier = 1.0
+        risk_count = len(risk_factors)
+        
+        if risk_count >= 5:  # 5+ risk factors - significant boost
+            boost_multiplier = 1.6  # 60% increase
+            logger.info(f"🚨 High risk patient: {risk_count} factors detected: {risk_factors}")
+        elif risk_count >= 4:  # 4 risk factors - moderate boost
+            boost_multiplier = 1.4  # 40% increase
+            logger.info(f"⚠️ Elevated risk: {risk_count} factors detected: {risk_factors}")
+        elif risk_count >= 3:  # 3 risk factors - small boost
+            boost_multiplier = 1.2  # 20% increase
+            logger.info(f"📈 Multiple risk factors: {risk_count} detected: {risk_factors}")
+        
+        # Apply boost but cap at 99.9%
+        boosted_risk = min(base_risk * boost_multiplier, 99.9)
+        
+        if boost_multiplier > 1.0:
+            logger.info(f"Risk boost applied: {base_risk:.1f}% → {boosted_risk:.1f}% (x{boost_multiplier})")
+        
+        return boosted_risk
     
     # -------------------------------
     # ✅ Dual model prediction logic
