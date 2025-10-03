@@ -546,19 +546,34 @@ class DiabetesPredictionService:
         fallback_path = self.models_path / "diabetes_general_model.pkl"
         
         if general_model_path.exists():
-            self.general_model = joblib.load(general_model_path)
-            logger.info("✅ General diabetes model (compressed) loaded successfully")
+            try:
+                logger.info(f"🔄 Attempting to load compressed model: {general_model_path}")
+                self.general_model = joblib.load(general_model_path)
+                logger.info("✅ General diabetes model (compressed) loaded successfully")
+            except Exception as e:
+                logger.error(f"❌ Failed to load compressed model: {str(e)}")
+                self.general_model = None
         elif fallback_path.exists():
-            self.general_model = joblib.load(fallback_path)
-            logger.info("✅ General diabetes model (original) loaded successfully")
+            try:
+                logger.info(f"🔄 Attempting to load original model: {fallback_path}")
+                self.general_model = joblib.load(fallback_path)
+                logger.info("✅ General diabetes model (original) loaded successfully")
+            except Exception as e:
+                logger.error(f"❌ Failed to load original model: {str(e)}")
+                self.general_model = None
         else:
             logger.warning("❌ General diabetes model not found (neither compressed nor original)")
             
         # Load women's model  
         women_model_path = self.models_path / "diabetes_women_model.pkl"
         if women_model_path.exists():
-            self.women_model = joblib.load(women_model_path)
-            logger.info("✅ Women-specific diabetes model loaded successfully")
+            try:
+                logger.info(f"🔄 Attempting to load women's model: {women_model_path}")
+                self.women_model = joblib.load(women_model_path)
+                logger.info("✅ Women-specific diabetes model loaded successfully")
+            except Exception as e:
+                logger.error(f"❌ Failed to load women's model: {str(e)}")
+                self.women_model = None
         else:
             logger.warning("❌ Women-specific diabetes model not found")
             

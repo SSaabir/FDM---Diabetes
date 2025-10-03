@@ -217,23 +217,48 @@ async def debug_models():
 async def debug_reload_models():
     """Debug endpoint to force reload models and capture any errors"""
     import traceback
+    import logging
+    
+    # Capture logs during reload
+    logs = []
+    
+    class ListHandler(logging.Handler):
+        def emit(self, record):
+            logs.append(self.format(record))
+    
+    # Add temporary handler to capture logs
+    list_handler = ListHandler()
+    list_handler.setLevel(logging.DEBUG)
+    logger = logging.getLogger()
+    logger.addHandler(list_handler)
     
     try:
         # Try to reload the models
         prediction_service.load_models()
+        
+        # Remove the handler
+        logger.removeHandler(list_handler)
         
         return {
             "reload_successful": True,
             "general_model_loaded": prediction_service.general_model is not None,
             "women_model_loaded": prediction_service.women_model is not None,
             "legacy_model_loaded": prediction_service.rf_model is not None,
+            "general_model_type": str(type(prediction_service.general_model)) if prediction_service.general_model else "None",
+            "women_model_type": str(type(prediction_service.women_model)) if prediction_service.women_model else "None",
+            "legacy_model_type": str(type(prediction_service.rf_model)) if prediction_service.rf_model else "None",
+            "logs": logs[-20:],  # Last 20 log entries
             "message": "Models reloaded successfully"
         }
         
     except Exception as e:
+        # Remove the handler
+        logger.removeHandler(list_handler)
+        
         return {
             "reload_successful": False,
             "error": str(e),
             "traceback": traceback.format_exc(),
+            "logs": logs[-20:],  # Last 20 log entries
             "message": "Model reload failed"
         }
