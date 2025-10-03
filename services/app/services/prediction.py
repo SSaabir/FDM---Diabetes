@@ -35,8 +35,8 @@ class DiabetesPredictionService:
         if isinstance(value, str):
             value = value.strip().replace("<", "").replace(">", "")
             
-            # Numeric fields
-            if field in ['age', 'height', 'weight', 'bloodPressure', 'cholesterol', 'hbA1c_level', 'blood_glucose_level']:
+            # Only apply numeric sanitization to actual numeric fields
+            if field in ['age', 'height', 'weight', 'hbA1c_level', 'blood_glucose_level']:
                 value = ''.join(c for c in value if c.isdigit() or c == '.')
                 try:
                     value = float(value)
