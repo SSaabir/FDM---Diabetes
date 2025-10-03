@@ -55,7 +55,7 @@ class DiabetesPredictionService:
             self.women_model = None
 
     def preprocess_input(self, user_input: Dict[str, Any]) -> Tuple[Dict[str, float], bool]:
-        """Enhanced preprocessing to create ML-ready features"""
+        """Simplified preprocessing to match actual trained model features"""
         try:
             # Extract basic inputs
             age = float(user_input.get('age', 35))
@@ -74,57 +74,45 @@ class DiabetesPredictionService:
             hba1c_level = float(hba1c) if hba1c and hba1c != '' else 5.7  # Default normal value
             glucose_level = float(glucose) if glucose and glucose != '' else 95  # Default normal value
             
-            # Extract categorical inputs with proper mapping
+            # Extract categorical inputs
             gender = user_input.get('gender', 'male').lower()
             smoking_history = user_input.get('smoking', 'never').lower()
-            family_history = user_input.get('familyHistory', 'no').lower()
-            hypertension = user_input.get('hypertension', 'no').lower() == 'yes'
-            heart_disease = user_input.get('heartDisease', 'no').lower() == 'yes'
             
-            # Create comprehensive feature set matching the ML model
+            # Create basic feature set matching the actual model expectations
             features = {
-                # Core numerical features (standardized later)
-                'age': age,
-                'bmi': bmi, 
-                'hbA1c_level': hba1c_level,
-                'blood_glucose_level': glucose_level,
+                # Core numerical features (need to be standardized to match training data)
+                'age': (age - 45) / 15,  # Simple standardization
+                'bmi': (bmi - 25) / 5,   # Simple standardization
+                'hbA1c_level': (hba1c_level - 6) / 1,  # Simple standardization
+                'blood_glucose_level': (glucose_level - 100) / 30,  # Simple standardization
                 
                 # Gender encoding (one-hot)
-                'gender_Female': 1 if gender == 'female' else 0,
-                'gender_Male': 1 if gender == 'male' else 0,
+                'gender_Female': gender == 'female',
+                'gender_Male': gender == 'male',
                 
                 # Smoking history encoding (one-hot)
-                'smoking_history_No Info': 1 if smoking_history == 'no info' else 0,
-                'smoking_history_current': 1 if smoking_history == 'current' else 0,
-                'smoking_history_ever': 1 if smoking_history == 'ever' else 0,
-                'smoking_history_former': 1 if smoking_history == 'former' else 0,
-                'smoking_history_never': 1 if smoking_history == 'never' else 0,
-                'smoking_history_not current': 1 if smoking_history == 'not current' else 0,
+                'smoking_history_No Info': smoking_history == 'no info',
+                'smoking_history_current': smoking_history == 'current',
+                'smoking_history_ever': smoking_history == 'ever',
+                'smoking_history_former': smoking_history == 'former',
+                'smoking_history_never': smoking_history == 'never',
+                'smoking_history_not current': smoking_history == 'not current',
                 
                 # BMI categories (one-hot)
-                'bmi_category_Normal': 1 if 18.5 <= bmi < 25 else 0,
-                'bmi_category_Obese': 1 if bmi >= 30 else 0,
-                'bmi_category_Overweight': 1 if 25 <= bmi < 30 else 0,
-                'bmi_category_Underweight': 1 if bmi < 18.5 else 0,
+                'bmi_category_Normal': 18.5 <= bmi < 25,
+                'bmi_category_Obese': bmi >= 30,
+                'bmi_category_Overweight': 25 <= bmi < 30,
+                'bmi_category_Underweight': bmi < 18.5,
                 
                 # Age groups (one-hot)
-                'age_group_Adult': 1 if 18 <= age < 40 else 0,
-                'age_group_Child': 1 if age < 18 else 0,  # Should not occur with age validation
-                'age_group_Middle-aged': 1 if 40 <= age < 60 else 0,
-                'age_group_Senior': 1 if age >= 60 else 0,
+                'age_group_Adult': 18 <= age < 40,
+                'age_group_Child': age < 18,
+                'age_group_Middle-aged': 40 <= age < 60,
+                'age_group_Senior': age >= 60,
                 
-                # BMI risk levels (one-hot)
-                'bmi_risk_level_normal': 1 if 18.5 <= bmi < 25 else 0,
-                'bmi_risk_level_obese_1': 1 if 30 <= bmi < 35 else 0,
-                'bmi_risk_level_obese_2': 1 if bmi >= 35 else 0,
-                'bmi_risk_level_overweight': 1 if 25 <= bmi < 30 else 0,
-                'bmi_risk_level_underweight': 1 if bmi < 18.5 else 0,
-                
-                # Age diabetes risk (one-hot)
-                'age_diabetes_risk_high_risk': 1 if 50 <= age < 65 else 0,
-                'age_diabetes_risk_low_risk': 1 if age < 35 else 0,
-                'age_diabetes_risk_moderate_risk': 1 if 35 <= age < 50 else 0,
-                'age_diabetes_risk_very_high_risk': 1 if age >= 65 else 0,
+                # Categorical risk levels (single values, not one-hot)
+                'bmi_risk_level': 'overweight' if 25 <= bmi < 30 else 'obese_1' if 30 <= bmi < 35 else 'obese_2' if bmi >= 35 else 'underweight' if bmi < 18.5 else 'normal',
+                'age_diabetes_risk': 'very_high_risk' if age >= 65 else 'high_risk' if age >= 50 else 'moderate_risk' if age >= 35 else 'low_risk'
             }
             
             return features, has_clinical_data
@@ -147,22 +135,29 @@ class DiabetesPredictionService:
                 model_to_use = self.women_model if gender == 'female' and self.women_model else self.general_model
                 
                 if model_to_use is not None:
-                    # Create feature DataFrame in correct order
-                    if self.feature_columns:
-                        feature_df = pd.DataFrame([features])
-                        # Ensure all required features are present
-                        for col in self.feature_columns:
-                            if col not in feature_df.columns:
-                                feature_df[col] = 0
-                        # Reorder columns to match training
-                        feature_df = feature_df[self.feature_columns]
-                    else:
-                        feature_df = pd.DataFrame([features])
-                    
-                    # Make prediction
-                    risk_probability = model_to_use.predict_proba(feature_df)[0][1]
-                    model_used = f"{'Women-Specific' if gender == 'female' and self.women_model else 'General'} ML Model (Clinical + Lifestyle)"
-                    confidence = "high"
+                    try:
+                        # Create feature DataFrame in correct order
+                        if self.feature_columns:
+                            feature_df = pd.DataFrame([features])
+                            # Ensure all required features are present
+                            for col in self.feature_columns:
+                                if col not in feature_df.columns:
+                                    feature_df[col] = 0
+                            # Reorder columns to match training
+                            feature_df = feature_df[self.feature_columns]
+                        else:
+                            feature_df = pd.DataFrame([features])
+                        
+                        # Make prediction
+                        risk_probability = model_to_use.predict_proba(feature_df)[0][1]
+                        model_used = f"{'Women-Specific' if gender == 'female' and self.women_model else 'General'} ML Model (Clinical + Lifestyle)"
+                        confidence = "high"
+                    except Exception as e:
+                        logger.warning(f"ML model prediction failed: {str(e)}, falling back to calculator")
+                        # Fallback to risk calculator if model fails
+                        risk_probability = self._calculate_risk_with_clinical(features)
+                        model_used = "Enhanced Risk Calculator (Clinical + Lifestyle)"
+                        confidence = "high"
                 else:
                     # Fallback to risk calculator
                     risk_probability = self._calculate_risk_with_clinical(features)
@@ -211,13 +206,28 @@ class DiabetesPredictionService:
                 "has_clinical_data": False
             }
 
-    def _calculate_risk_with_clinical(self, features: Dict[str, float]) -> float:
+    def _calculate_risk_with_clinical(self, features: Dict[str, Any]) -> float:
         """Enhanced risk calculation with clinical data"""
         risk_score = 0.0
         
         # Clinical factors (most important)
-        hba1c = features['hbA1c_level']
-        glucose = features['blood_glucose_level']
+        # Convert back from standardized values or use raw if available
+        if 'hbA1c_level' in features:
+            if isinstance(features['hbA1c_level'], (int, float)) and features['hbA1c_level'] > -10:
+                # If standardized, convert back (rough approximation)
+                hba1c = features['hbA1c_level'] + 6 if features['hbA1c_level'] < 10 else features['hbA1c_level']
+            else:
+                hba1c = features['hbA1c_level']
+        else:
+            hba1c = 5.7
+            
+        if 'blood_glucose_level' in features:
+            if isinstance(features['blood_glucose_level'], (int, float)) and features['blood_glucose_level'] > -10:
+                glucose = features['blood_glucose_level'] + 100 if features['blood_glucose_level'] < 10 else features['blood_glucose_level']
+            else:
+                glucose = features['blood_glucose_level']
+        else:
+            glucose = 95
         
         # HbA1c scoring (most predictive)
         if hba1c >= 6.5:
@@ -238,16 +248,20 @@ class DiabetesPredictionService:
         
         return min(risk_score, 0.95)
     
-    def _calculate_risk_lifestyle_only(self, features: Dict[str, float]) -> float:
+    def _calculate_risk_lifestyle_only(self, features: Dict[str, Any]) -> float:
         """Risk calculation based only on lifestyle factors"""
         return self._calculate_lifestyle_risk(features)
     
-    def _calculate_lifestyle_risk(self, features: Dict[str, float]) -> float:
+    def _calculate_lifestyle_risk(self, features: Dict[str, Any]) -> float:
         """Calculate risk from lifestyle and demographic factors"""
         risk_score = 0.0
         
-        # Age factor
-        age = features['age']
+        # Age factor - handle both raw and standardized
+        if 'age' in features:
+            age = features['age'] + 45 if features['age'] < 10 else features['age']
+        else:
+            age = 35
+            
         if age >= 65:
             risk_score += 0.3
         elif age >= 50:
@@ -255,8 +269,12 @@ class DiabetesPredictionService:
         elif age >= 35:
             risk_score += 0.1
             
-        # BMI factor
-        bmi = features['bmi']
+        # BMI factor - handle both raw and standardized
+        if 'bmi' in features:
+            bmi = features['bmi'] + 25 if features['bmi'] < 10 else features['bmi']
+        else:
+            bmi = 25
+            
         if bmi >= 35:
             risk_score += 0.25
         elif bmi >= 30:
@@ -264,14 +282,14 @@ class DiabetesPredictionService:
         elif bmi >= 25:
             risk_score += 0.1
             
-        # Gender factor (from your data, males seem higher risk)
-        if features['gender_Male']:
+        # Gender factor
+        if features.get('gender_Male', False):
             risk_score += 0.05
             
         # Smoking history
-        if features['smoking_history_current']:
+        if features.get('smoking_history_current', False):
             risk_score += 0.1
-        elif features['smoking_history_former']:
+        elif features.get('smoking_history_former', False):
             risk_score += 0.05
             
         return min(risk_score, 0.8)  # Cap lifestyle-only at 80%
