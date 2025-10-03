@@ -1,0 +1,12 @@
+{
+  "age": 65,
+  "gender": "male",
+  "height": 170,
+  "weight": 110,
+  "familyHistory": "yes",
+  "physicalActivity": "low",
+  "smoking": "yes",
+  "bloodPressure": "high",
+  "cholesterol": "high",
+  "gestationalHistory": false
+}

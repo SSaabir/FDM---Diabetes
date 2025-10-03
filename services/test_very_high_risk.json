@@ -1,0 +1,12 @@
+{
+  "age": 70,
+  "gender": "female",
+  "height": 160,
+  "weight": 120,
+  "familyHistory": "yes",
+  "physicalActivity": "low",
+  "smoking": "yes",
+  "bloodPressure": "high",
+  "cholesterol": "high",
+  "gestationalHistory": true
+}

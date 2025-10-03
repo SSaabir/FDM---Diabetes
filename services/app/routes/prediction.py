@@ -52,6 +52,10 @@ async def predict_diabetes_risk_public(
 ):
     try:
         user_input = prediction_request.dict()
+        
+        # Log the received data for debugging
+        logger.info(f"🔍 Received prediction request: {user_input}")
+        
         for field in user_input:
             user_input[field] = sanitize_input(field, user_input[field])
         prediction_result = prediction_service.predict_diabetes_risk(user_input)
@@ -262,3 +266,30 @@ async def debug_reload_models():
             "logs": logs[-20:],  # Last 20 log entries
             "message": "Model reload failed"
         }
+
+@router.post("/debug/echo-input")
+async def debug_echo_input(
+    prediction_request: PredictionRequest
+):
+    """Debug endpoint to echo back exactly what input was received"""
+    user_input = prediction_request.dict()
+    
+    # Calculate BMI for verification
+    height_m = user_input['height'] / 100
+    calculated_bmi = user_input['weight'] / (height_m ** 2)
+    
+    return {
+        "received_input": user_input,
+        "calculated_bmi": round(calculated_bmi, 2),
+        "input_summary": {
+            "age": user_input['age'],
+            "gender": user_input['gender'],
+            "bmi": round(calculated_bmi, 2),
+            "family_history": user_input['familyHistory'],
+            "physical_activity": user_input['physicalActivity'],
+            "smoking": user_input['smoking'],
+            "blood_pressure": user_input['bloodPressure'],
+            "cholesterol": user_input['cholesterol'],
+            "gestational_history": user_input.get('gestationalHistory', False)
+        }
+    }
