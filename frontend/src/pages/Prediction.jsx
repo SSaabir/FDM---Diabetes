@@ -40,7 +40,9 @@ const Prediction = () => {
     dietPattern: '',
     alcoholIntake: '',
     medicationUse: '',
-    gestationalHistory: false
+    gestationalHistory: false,
+    hbA1c: '',
+    bloodGlucose: ''
   });
   
   const [prediction, setPrediction] = useState(null);
@@ -69,7 +71,9 @@ const Prediction = () => {
         dietPattern: 'balanced',
         alcoholIntake: 'none',
         medicationUse: 'no',
-        gestationalHistory: false
+        gestationalHistory: false,
+        hbA1c: '5.2',
+        bloodGlucose: '85'
       },
       // Moderate risk middle-aged male
       {
@@ -86,7 +90,9 @@ const Prediction = () => {
         dietPattern: 'high-carb',
         alcoholIntake: 'occasional',
         medicationUse: 'yes',
-        gestationalHistory: false
+        gestationalHistory: false,
+        hbA1c: '6.1',
+        bloodGlucose: '105'
       },
       // High risk female with gestational history
       {
@@ -103,7 +109,9 @@ const Prediction = () => {
         dietPattern: 'high-carb',
         alcoholIntake: 'regular',
         medicationUse: 'yes',
-        gestationalHistory: true
+        gestationalHistory: true,
+        hbA1c: '6.8',
+        bloodGlucose: '140'
       },
       // High risk senior male
       {
@@ -120,7 +128,9 @@ const Prediction = () => {
         dietPattern: 'high-carb',
         alcoholIntake: 'regular',
         medicationUse: 'yes',
-        gestationalHistory: false
+        gestationalHistory: false,
+        hbA1c: '7.2',
+        bloodGlucose: '160'
       },
       // Random moderate risk female
       {
@@ -137,7 +147,9 @@ const Prediction = () => {
         dietPattern: 'balanced',
         alcoholIntake: 'occasional',
         medicationUse: 'no',
-        gestationalHistory: false
+        gestationalHistory: false,
+        hbA1c: '5.8',
+        bloodGlucose: '95'
       }
     ];
 
@@ -153,9 +165,15 @@ const Prediction = () => {
       familyHistory: randomData.familyHistory,
       physicalActivity: randomData.physicalActivity,
       smoking: randomData.smoking,
-      bloodPressure: randomData.bloodPressure,
-      cholesterol: randomData.cholesterol,
-      gestationalHistory: randomData.gestationalHistory
+      hypertension: randomData.hypertension,
+      heartDisease: randomData.heartDisease,
+      sleepHours: randomData.sleepHours,
+      dietPattern: randomData.dietPattern,
+      alcoholIntake: randomData.alcoholIntake,
+      medicationUse: randomData.medicationUse,
+      gestationalHistory: randomData.gestationalHistory,
+      hbA1c: randomData.hbA1c,
+      bloodGlucose: randomData.bloodGlucose
     });
 
     // Clear any previous prediction
@@ -206,7 +224,9 @@ const Prediction = () => {
         dietPattern: formData.dietPattern,
         alcoholIntake: formData.alcoholIntake,
         medicationUse: formData.medicationUse,
-        gestationalHistory: formData.gender === 'female' ? formData.gestationalHistory : false
+        gestationalHistory: formData.gender === 'female' ? formData.gestationalHistory : false,
+        hbA1c: formData.hbA1c ? parseFloat(formData.hbA1c) : null,
+        bloodGlucose: formData.bloodGlucose ? parseFloat(formData.bloodGlucose) : null
       };
 
       console.log('🔍 DEBUG: Sending API data:', apiData);
@@ -219,8 +239,8 @@ const Prediction = () => {
       if (result.success) {
         const predictionData = result.data;
         
-        // Validate prediction data for realistic values
-        let riskPercentage = predictionData.risk_percentage;
+        // Handle both old and new response formats
+        let riskPercentage = predictionData.risk_percentage || (predictionData.risk_probability * 100);
         
         setPrediction({
           risk: Math.round(riskPercentage * 10) / 10, // Round to 1 decimal
@@ -228,7 +248,8 @@ const Prediction = () => {
           recommendations: predictionData.recommendations,
           bmi: predictionData.bmi,
           modelUsed: predictionData.model_used,
-          confidence: predictionData.confidence
+          confidence: predictionData.confidence,
+          hasClinicalData: predictionData.has_clinical_data
         });
         
         toast({
@@ -257,6 +278,10 @@ const Prediction = () => {
 
   const isFormValid = () => {
     return Object.entries(formData).every(([key, value]) => {
+      // Skip optional clinical fields
+      if (key === 'hbA1c' || key === 'bloodGlucose') {
+        return true;
+      }
       // Boolean fields are always valid if they exist
       if (typeof value === 'boolean') {
         return true;
@@ -459,6 +484,56 @@ const Prediction = () => {
                 </div>
               </div>
 
+              {/* Clinical Data - Optional */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-primary flex items-center space-x-2">
+                  <Stethoscope className="h-4 w-4" />
+                  <span>Clinical Data (Optional) 🩸</span>
+                </h3>
+                
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800 mb-3">
+                    📊 <strong>Enhanced Accuracy:</strong> Adding lab results significantly improves prediction accuracy. 
+                    Leave blank if you don't have recent test results.
+                  </p>
+                  
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="hbA1c">HbA1c Level (%) 🔬</Label>
+                      <Input
+                        id="hbA1c"
+                        type="number"
+                        step="0.1"
+                        placeholder="e.g., 5.7 (optional)"
+                        value={formData.hbA1c}
+                        onChange={(e) => handleInputChange('hbA1c', e.target.value)}
+                        min="4.0"
+                        max="15.0"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Normal: &lt;5.7%, Prediabetes: 5.7-6.4%, Diabetes: ≥6.5%
+                      </p>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="bloodGlucose">Blood Glucose (mg/dL) 🩸</Label>
+                      <Input
+                        id="bloodGlucose"
+                        type="number"
+                        placeholder="e.g., 95 (optional)"
+                        value={formData.bloodGlucose}
+                        onChange={(e) => handleInputChange('bloodGlucose', e.target.value)}
+                        min="50"
+                        max="400"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Normal: 70-99 mg/dL (fasting), &lt;140 mg/dL (2hr post-meal)
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Lifestyle Factors */}
               <div className="space-y-4">
                 <h3 className="font-semibold text-primary flex items-center space-x-2">
@@ -648,6 +723,9 @@ const Prediction = () => {
                         <p className="text-xs text-muted-foreground">
                           🔬 Analysis performed using: <span className="font-medium">{prediction.modelUsed}</span>
                           {prediction.confidence && ` (${prediction.confidence} confidence)`}
+                          {prediction.hasClinicalData && (
+                            <span className="ml-2 text-green-600 font-medium">✓ Enhanced with lab data</span>
+                          )}
                         </p>
                       )}
                     </div>
