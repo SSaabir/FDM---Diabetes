@@ -16,8 +16,11 @@ import {
 import { Link } from "react-router-dom";
 import Header from "../components/Header.jsx";
 import Footer from "../components/Footer.jsx";
+import { usePageTitle } from "../hooks/usePageTitle.js";
 
 const Home = () => {
+  usePageTitle("AI-Powered Diabetes Risk Assessment");
+
   return (
     <div className="min-h-screen bg-gradient-soft">
       
@@ -120,6 +123,50 @@ const Home = () => {
               Monitor your health improvements and track risk reduction over time
             </CardDescription>
           </Card>
+        </div>
+      </section>
+
+      {/* Quick Links Section */}
+      <section className="container mx-auto px-4 py-12">
+        <div className="text-center mb-8">
+          <h3 className="text-2xl font-bold text-primary mb-4">Explore More 🔍</h3>
+          <p className="text-muted-foreground">
+            Learn more about our platform and get the support you need
+          </p>
+        </div>
+        
+        <div className="grid md:grid-cols-4 gap-4 max-w-4xl mx-auto">
+          <Link to="/about" className="group">
+            <Card className="medical-card text-center p-4 h-full hover:shadow-lg transition-all duration-300 group-hover:scale-105">
+              <div className="text-3xl mb-2">ℹ️</div>
+              <h4 className="font-semibold text-sm text-primary mb-1">About Us</h4>
+              <p className="text-xs text-muted-foreground">Learn about our mission and team</p>
+            </Card>
+          </Link>
+          
+          <Link to="/faq" className="group">
+            <Card className="medical-card text-center p-4 h-full hover:shadow-lg transition-all duration-300 group-hover:scale-105">
+              <div className="text-3xl mb-2">❓</div>
+              <h4 className="font-semibold text-sm text-primary mb-1">FAQ</h4>
+              <p className="text-xs text-muted-foreground">Find answers to common questions</p>
+            </Card>
+          </Link>
+          
+          <Link to="/contact" className="group">
+            <Card className="medical-card text-center p-4 h-full hover:shadow-lg transition-all duration-300 group-hover:scale-105">
+              <div className="text-3xl mb-2">📞</div>
+              <h4 className="font-semibold text-sm text-primary mb-1">Contact</h4>
+              <p className="text-xs text-muted-foreground">Get in touch with our team</p>
+            </Card>
+          </Link>
+          
+          <Link to="/terms" className="group">
+            <Card className="medical-card text-center p-4 h-full hover:shadow-lg transition-all duration-300 group-hover:scale-105">
+              <div className="text-3xl mb-2">📄</div>
+              <h4 className="font-semibold text-sm text-primary mb-1">Terms</h4>
+              <p className="text-xs text-muted-foreground">Review our terms and policies</p>
+            </Card>
+          </Link>
         </div>
       </section>
 

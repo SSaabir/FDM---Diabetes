@@ -21,8 +21,10 @@ import {
 import { Link } from "react-router-dom";
 import { useToast } from "../hooks/use-toast.jsx";
 import { predictionAPI, apiHelpers } from "../services/api.js";
+import { usePageTitle } from "../hooks/usePageTitle.js";
 
 const Prediction = () => {
+  usePageTitle("Risk Assessment");
   const { toast } = useToast();
   const [formData, setFormData] = useState({
     age: '',

@@ -8,9 +8,11 @@ import { useToast } from "../hooks/use-toast.jsx";
 import { chatAPI, apiHelpers } from "../services/api.js";
 import Header from "../components/Header.jsx";
 import Footer from "../components/Footer.jsx";
+import { usePageTitle } from "../hooks/usePageTitle.js";
 import * as Yup from "yup"; // ✅ Yup for validation
 
 const Chat = () => {
+  usePageTitle("Health Chat");
   const { toast } = useToast();
   const [messages, setMessages] = useState([
     {
@@ -32,14 +34,6 @@ const Chat = () => {
   ]);
 
   const messagesEndRef = useRef(null);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
 
   // ✅ Yup schema for validation
   const messageSchema = Yup.object().shape({
@@ -216,7 +210,7 @@ const Chat = () => {
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 relative">
             {messages.map((message) => (
               <div
                 key={message.id}

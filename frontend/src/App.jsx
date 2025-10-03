@@ -125,6 +125,7 @@ const App = () => (
             />
             
             {/* Public Routes */}
+            <Route path="/about" element={<AboutUs />} />
             <Route path="/aboutus" element={<AboutUs />} />
             <Route path="/" element={<Home />} />
             <Route path="*" element={<NotFound />} />

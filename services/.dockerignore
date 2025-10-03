@@ -68,14 +68,17 @@ coverage/
 # nyc test coverage
 .nyc_output
 
-# Data files - CSV and Excel
-*.csv
+# Data files - CSV and Excel (exclude training data but keep model artifacts)
+data/raw/*.csv
+data/processed/*.csv
+data/processed_enhanced/*.csv
 *.xlsx
 *.xls
 
-# Data directories
+# Data directories (exclude raw and processed data but keep models)
 data/raw/
 data/processed/
+data/processed_enhanced/
 data/temp/
 reports/
 reports_enhanced/
@@ -99,11 +102,15 @@ coverage/
 # Jupyter notebooks checkpoints
 .ipynb_checkpoints
 
-# Model files (large files)
-*.pkl
-*.h5
-*.joblib
-*.model
+# Exclude specific large training files but keep essential models and configs
+agents/
+__pycache__/
+*.ipynb
+
+# Keep essential model files - DO NOT exclude:
+# models/*.pkl (trained models)
+# models/*.h5 (neural network models) 
+# models/*.json (feature configurations)
 
 # Docker
 Dockerfile*

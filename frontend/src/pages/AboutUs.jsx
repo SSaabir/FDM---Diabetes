@@ -1,4 +1,8 @@
+import { usePageTitle } from "../hooks/usePageTitle.js";
+
 function AboutUs() {
+  usePageTitle("About Us");
+  
   return (
     <div className="relative flex flex-col min-h-screen bg-[#F3F3E0] p-8 gap-12">
       {/* Watermark */}

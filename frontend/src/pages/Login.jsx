@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Heart, Loader2, Mail, Lock } from 'lucide-react';
+import { usePageTitle } from "../hooks/usePageTitle.js";
 import * as Yup from 'yup';
 
 // ✅ Sanitization helper
@@ -18,6 +19,7 @@ const sanitizeInput = (value) => {
 };
 
 export const Login = () => {
+  usePageTitle("Login");
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);

@@ -1,0 +1,32 @@
+{
+  "name": "DiabetesPredict - AI-Powered Diabetes Risk Assessment",
+  "short_name": "DiabetesPredict",
+  "description": "Get personalized diabetes risk assessments and expert health guidance through our AI-powered platform.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/diabetes-favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/diabetes-favicon.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/diabetes-favicon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ],
+  "categories": ["health", "medical", "lifestyle"],
+  "lang": "en-US",
+  "scope": "/",
+  "id": "diabetespredict-app"
+}

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Search, Heart, Shield, Activity, HelpCircle } from 'lucide-react';
+import { usePageTitle } from "../hooks/usePageTitle.js";
 
 const faqCategories = [
   {
@@ -107,6 +108,7 @@ const faqCategories = [
 ];
 
 export const FAQ = () => {
+  usePageTitle("FAQ");
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredFAQs = faqCategories.map(category => ({

@@ -21,12 +21,12 @@ const Footer = () => {
             <h3 className="font-semibold mb-4 text-foreground">Services</h3>
             <ul className="space-y-2 text-sm">
               <li>
-                <Link to="/prediction" className="text-muted-foreground hover:text-primary transition-colors">
+                <Link to="/prediction" className="text-muted-foreground hover:text-primary transition-colors cursor-pointer">
                   Risk Assessment
                 </Link>
               </li>
               <li>
-                <Link to="/chat" className="text-muted-foreground hover:text-primary transition-colors">
+                <Link to="/chat" className="text-muted-foreground hover:text-primary transition-colors cursor-pointer">
                   AI Health Chat
                 </Link>
               </li>
@@ -36,16 +36,54 @@ const Footer = () => {
           </div>
           
           <div>
+            <h3 className="font-semibold mb-4 text-foreground">Company</h3>
+            <ul className="space-y-2 text-sm">
+              <li>
+                <Link to="/about" className="text-muted-foreground hover:text-primary transition-colors cursor-pointer">
+                  About Us
+                </Link>
+              </li>
+              <li>
+                <Link to="/contact" className="text-muted-foreground hover:text-primary transition-colors cursor-pointer">
+                  Contact Us
+                </Link>
+              </li>
+              <li>
+                <Link to="/faq" className="text-muted-foreground hover:text-primary transition-colors cursor-pointer">
+                  FAQ
+                </Link>
+              </li>
+              <li>
+                <Link to="/terms" className="text-muted-foreground hover:text-primary transition-colors cursor-pointer">
+                  Terms & Conditions
+                </Link>
+              </li>
+            </ul>
+          </div>
+          
+          <div>
             <h3 className="font-semibold mb-4 text-foreground">Support</h3>
             <ul className="space-y-2 text-sm">
               <li>
-                <Link to="/faq" className="text-muted-foreground hover:text-primary transition-colors">
-                  FAQs
+                <Link to="/faq" className="text-muted-foreground hover:text-primary transition-colors cursor-pointer">
+                  Help Center
                 </Link>
               </li>
-              <li className="text-muted-foreground">Privacy Policy</li>
-              <li className="text-muted-foreground">Terms of Service</li>
-              <li className="text-muted-foreground">Contact Us</li>
+              <li>
+                <Link to="/contact" className="text-muted-foreground hover:text-primary transition-colors cursor-pointer">
+                  Get Support
+                </Link>
+              </li>
+              <li>
+                <Link to="/terms" className="text-muted-foreground hover:text-primary transition-colors">
+                  Privacy Policy
+                </Link>
+              </li>
+              <li>
+                <Link to="/about" className="text-muted-foreground hover:text-primary transition-colors">
+                  Our Mission
+                </Link>
+              </li>
             </ul>
           </div>
           
@@ -68,7 +106,29 @@ const Footer = () => {
           </div>
         </div>
         
-        <div className="border-t pt-8 text-center space-y-2">
+        <div className="border-t pt-8 text-center space-y-4">
+          {/* Quick Links Row */}
+          <div className="flex flex-wrap justify-center gap-6 mb-4">
+            <Link to="/about" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+              About Us
+            </Link>
+            <Link to="/faq" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+              FAQ
+            </Link>
+            <Link to="/contact" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+              Contact
+            </Link>
+            <Link to="/terms" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+              Terms & Conditions
+            </Link>
+            <Link to="/prediction" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+              Risk Assessment
+            </Link>
+            <Link to="/chat" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+              Health Chat
+            </Link>
+          </div>
+          
           <p className="text-sm text-muted-foreground">
             © 2024 DiabetesPredict. Professional diabetes risk assessment platform.
           </p>

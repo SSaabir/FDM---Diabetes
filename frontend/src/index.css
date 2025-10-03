@@ -282,6 +282,39 @@
     transform: translateY(-1px);
   }
   
+  /* Fix dropdown backgrounds to be opaque */
+  [data-radix-select-content] {
+    background-color: white !important;
+    backdrop-filter: none !important;
+  }
+  
+  [data-radix-dropdown-menu-content] {
+    background-color: white !important;
+    backdrop-filter: none !important;
+  }
+  
+  .dark [data-radix-select-content] {
+    background-color: #1f2937 !important;
+  }
+  
+  .dark [data-radix-dropdown-menu-content] {
+    background-color: #1f2937 !important;
+  }
+  
+  /* Ensure select items are visible */
+  [data-radix-select-item] {
+    color: #1f2937 !important;
+  }
+  
+  .dark [data-radix-select-item] {
+    color: #f9fafb !important;
+  }
+  
+  /* Enhanced z-index for dropdowns */
+  [data-radix-popper-content-wrapper] {
+    z-index: 9999 !important;
+  }
+  
   .pulse-gentle {
     animation: pulse 3s cubic-bezier(0.4,0,0.6,1) infinite;
   }
