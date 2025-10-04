@@ -224,12 +224,14 @@ const Prediction = () => {
         dietPattern: formData.dietPattern,
         alcoholIntake: formData.alcoholIntake,
         medicationUse: formData.medicationUse,
-        gestationalHistory: formData.gender === 'female' ? formData.gestationalHistory : false,
+        gestationalHistory: formData.gender === 'female' ? (formData.gestationalHistory ? 'yes' : 'no') : 'no',
         hbA1c: formData.hbA1c ? parseFloat(formData.hbA1c) : null,
         bloodGlucose: formData.bloodGlucose ? parseFloat(formData.bloodGlucose) : null
       };
 
       console.log('🔍 DEBUG: Sending API data:', apiData);
+      console.log('🔍 DEBUG: gestationalHistory type and value:', typeof apiData.gestationalHistory, apiData.gestationalHistory);
+      console.log('🔍 DEBUG: Gender:', apiData.gender);
 
       // Call the prediction API with enhanced error handling
       const response = await predictionAPI.predict(apiData);
