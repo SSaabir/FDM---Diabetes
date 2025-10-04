@@ -40,7 +40,7 @@ const Prediction = () => {
     dietPattern: '',
     alcoholIntake: '',
     medicationUse: '',
-    gestationalHistory: false,
+    gestationalHistory: 'no',
     hbA1c: '',
     bloodGlucose: ''
   });
@@ -71,7 +71,7 @@ const Prediction = () => {
         dietPattern: 'balanced',
         alcoholIntake: 'none',
         medicationUse: 'no',
-        gestationalHistory: false,
+        gestationalHistory: 'no',
         hbA1c: '5.2',
         bloodGlucose: '85'
       },
@@ -90,7 +90,7 @@ const Prediction = () => {
         dietPattern: 'high-carb',
         alcoholIntake: 'occasional',
         medicationUse: 'yes',
-        gestationalHistory: false,
+        gestationalHistory: 'no',
         hbA1c: '6.1',
         bloodGlucose: '105'
       },
@@ -109,7 +109,7 @@ const Prediction = () => {
         dietPattern: 'high-carb',
         alcoholIntake: 'regular',
         medicationUse: 'yes',
-        gestationalHistory: true,
+        gestationalHistory: 'yes',
         hbA1c: '6.8',
         bloodGlucose: '140'
       },
@@ -128,7 +128,7 @@ const Prediction = () => {
         dietPattern: 'high-carb',
         alcoholIntake: 'regular',
         medicationUse: 'yes',
-        gestationalHistory: false,
+        gestationalHistory: 'no',
         hbA1c: '7.2',
         bloodGlucose: '160'
       },
@@ -147,7 +147,7 @@ const Prediction = () => {
         dietPattern: 'balanced',
         alcoholIntake: 'occasional',
         medicationUse: 'no',
-        gestationalHistory: false,
+        gestationalHistory: 'no',
         hbA1c: '5.8',
         bloodGlucose: '95'
       }
@@ -228,7 +228,7 @@ const Prediction = () => {
         dietPattern: String(formData.dietPattern || ''),
         alcoholIntake: String(formData.alcoholIntake || ''),
         medicationUse: String(formData.medicationUse || ''),
-        gestationalHistory: formData.gender === 'female' ? (formData.gestationalHistory ? 'yes' : 'no') : 'no',
+        gestationalHistory: formData.gender === 'female' ? String(formData.gestationalHistory || 'no') : 'no',
         hbA1c: formData.hbA1c ? parseFloat(formData.hbA1c) : null,
         bloodGlucose: formData.bloodGlucose ? parseFloat(formData.bloodGlucose) : null
       };
@@ -238,9 +238,9 @@ const Prediction = () => {
       console.log('🔍 DEBUG: Gender:', apiData.gender);
       console.log('🔍 DEBUG: All field types:', Object.keys(apiData).map(key => `${key}: ${typeof apiData[key]} = ${apiData[key]}`));
       
-      // Safety check: Ensure no boolean values are being sent
+      // Safety check: Ensure no boolean values are being sent to backend
       const problematicFields = Object.keys(apiData).filter(key => 
-        typeof apiData[key] === 'boolean' && key !== 'gestationalHistory'
+        typeof apiData[key] === 'boolean'
       );
       if (problematicFields.length > 0) {
         console.error('🚨 WARNING: Boolean fields detected:', problematicFields);
@@ -249,6 +249,7 @@ const Prediction = () => {
           console.log(`🔧 Converting ${field} from ${apiData[field]} to "${String(apiData[field])}"`);
           apiData[field] = String(apiData[field]);
         });
+        console.log('🔍 DEBUG: Fixed API data after boolean conversion:', apiData);
       }
 
       // Call the prediction API with enhanced error handling
@@ -346,7 +347,7 @@ const Prediction = () => {
               <div className="flex items-center space-x-3">
                 <Calculator className="h-6 w-6 bounce-in" />
                 <div>
-                  <CardTitle className="text-lg">Diabetes Risk Assessment 📋</CardTitle>
+                  <CardTitle className="text-lg text-black">Diabetes Risk Assessment 📋</CardTitle>
                   <CardDescription className="text-primary-foreground/80">
                     Complete the form to get your personalized risk analysis
                   </CardDescription>
@@ -454,8 +455,8 @@ const Prediction = () => {
                     <div className="space-y-2">
                       <Label>History of Gestational Diabetes 🤱</Label>
                       <Select 
-                        value={formData.gestationalHistory ? 'yes' : 'no'} 
-                        onValueChange={(value) => handleInputChange('gestationalHistory', value === 'yes')}
+                        value={formData.gestationalHistory || 'no'} 
+                        onValueChange={(value) => handleInputChange('gestationalHistory', value)}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select gestational history" />
