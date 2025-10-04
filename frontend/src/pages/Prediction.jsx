@@ -209,21 +209,21 @@ const Prediction = () => {
     setLastRequestTime(now);
     
     try {
-      // Convert form data to API format
+      // Convert form data to API format with proper data types for backend compatibility
       const apiData = {
         age: parseInt(formData.age),
-        gender: formData.gender,
+        gender: String(formData.gender),
         height: parseFloat(formData.height),
         weight: parseFloat(formData.weight),
-        familyHistory: formData.familyHistory,
-        physicalActivity: formData.physicalActivity,
-        smoking: formData.smoking,
-        hypertension: formData.hypertension,
-        heartDisease: formData.heartDisease,
+        familyHistory: String(formData.familyHistory),
+        physicalActivity: String(formData.physicalActivity),
+        smoking: String(formData.smoking),
+        hypertension: String(formData.hypertension),
+        heartDisease: String(formData.heartDisease),
         sleepHours: parseInt(formData.sleepHours),
-        dietPattern: formData.dietPattern,
-        alcoholIntake: formData.alcoholIntake,
-        medicationUse: formData.medicationUse,
+        dietPattern: String(formData.dietPattern),
+        alcoholIntake: String(formData.alcoholIntake),
+        medicationUse: String(formData.medicationUse),
         gestationalHistory: formData.gender === 'female' ? (formData.gestationalHistory ? 'yes' : 'no') : 'no',
         hbA1c: formData.hbA1c ? parseFloat(formData.hbA1c) : null,
         bloodGlucose: formData.bloodGlucose ? parseFloat(formData.bloodGlucose) : null
@@ -232,6 +232,7 @@ const Prediction = () => {
       console.log('🔍 DEBUG: Sending API data:', apiData);
       console.log('🔍 DEBUG: gestationalHistory type and value:', typeof apiData.gestationalHistory, apiData.gestationalHistory);
       console.log('🔍 DEBUG: Gender:', apiData.gender);
+      console.log('🔍 DEBUG: All field types:', Object.keys(apiData).map(key => `${key}: ${typeof apiData[key]}`));
 
       // Call the prediction API with enhanced error handling
       const response = await predictionAPI.predict(apiData);

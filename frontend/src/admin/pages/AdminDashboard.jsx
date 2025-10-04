@@ -129,11 +129,11 @@ const AdminDashboard = () => {
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center space-x-4">
               <span className="text-gray-600">
-                Role: <span className="font-medium text-[#183B4E]">{roleDisplayText}</span>
+                Role: <span className="font-medium text-[#ffffff]">{roleDisplayText}</span>
               </span>
               {userInfo?.position && (
                 <span className="text-gray-600">
-                  Position: <span className="font-medium text-[#183B4E]">{userInfo.position}</span>
+                  Position: <span className="font-medium text-[#ffffff]">{userInfo.position}</span>
                 </span>
               )}
             </div>
