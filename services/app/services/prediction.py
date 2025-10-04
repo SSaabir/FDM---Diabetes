@@ -226,16 +226,23 @@ class DiabetesPredictionService:
             features, has_clinical_data = self.preprocess_input(user_input, gender)
             
             # Select appropriate gender-specific model
+            logger.info(f"🔍 DEBUG: Selecting model for gender: {gender}")
+            logger.info(f"🔍 DEBUG: Women model available: {self.women_model is not None}")
+            logger.info(f"🔍 DEBUG: Men model available: {self.men_model is not None}")
+            
             if gender == 'female' and self.women_model is not None:
                 model_to_use = self.women_model
                 feature_schema = self.women_features
                 model_name = "Women-Specific XGBoost"
+                logger.info(f"🔍 DEBUG: Using women's model with {len(feature_schema)} features")
             elif gender == 'male' and self.men_model is not None:
                 model_to_use = self.men_model
                 feature_schema = self.men_features
                 model_name = "Men-Specific XGBoost"
+                logger.info(f"🔍 DEBUG: Using men's model with {len(feature_schema)} features")
             else:
                 # Fallback if models not available
+                logger.warning(f"🚨 DEBUG: No model available for {gender}, using fallback calculator")
                 risk_probability = self._calculate_risk_with_clinical(features) if has_clinical_data else self._calculate_risk_lifestyle_only(features)
                 model_used = f"Risk Calculator ({'Clinical + Lifestyle' if has_clinical_data else 'Lifestyle Only'})"
                 confidence = "moderate"
@@ -264,7 +271,17 @@ class DiabetesPredictionService:
                     # The scaler in processed_enhanced was used for other models, not XGBoost
                     
                     # Make prediction
-                    risk_probability = model_to_use.predict_proba(feature_df)[0][1]
+                    logger.info(f"🔍 DEBUG: Making prediction with feature_df shape: {feature_df.shape}")
+                    logger.info(f"🔍 DEBUG: Feature columns: {list(feature_df.columns)}")
+                    logger.info(f"🔍 DEBUG: Sample feature values: {dict(list(feature_df.iloc[0].items())[:10])}")
+                    
+                    prediction_proba = model_to_use.predict_proba(feature_df)
+                    logger.info(f"🔍 DEBUG: Raw prediction probabilities: {prediction_proba}")
+                    logger.info(f"🔍 DEBUG: Prediction shape: {prediction_proba.shape}")
+                    
+                    risk_probability = prediction_proba[0][1]
+                    logger.info(f"🔍 DEBUG: Extracted risk probability: {risk_probability}")
+                    
                     model_used = f"{model_name} Model (Clinical + Lifestyle)"
                     confidence = "high"
                     
@@ -279,6 +296,10 @@ class DiabetesPredictionService:
             
             # Convert to percentage
             risk_percentage = round(risk_probability * 100, 1)
+            logger.info(f"🔍 DEBUG: Final risk calculation:")
+            logger.info(f"   - Risk probability: {risk_probability}")
+            logger.info(f"   - Risk percentage: {risk_percentage}%")
+            logger.info(f"   - Model used: {model_used}")
             
             # Determine risk level and recommendations
             if risk_percentage < 30:
@@ -290,6 +311,8 @@ class DiabetesPredictionService:
             else:
                 risk_level = "high"
                 recommendations = self._get_high_risk_recommendations(has_clinical_data)
+
+            logger.info(f"🔍 DEBUG: Final result - {risk_level} risk ({risk_percentage}%)")
 
             return {
                 "risk_percentage": risk_percentage,
@@ -318,6 +341,7 @@ class DiabetesPredictionService:
 
     def _calculate_risk_with_clinical(self, features: Dict[str, Any]) -> float:
         """Enhanced risk calculation with clinical data"""
+        logger.info("🔍 DEBUG: Starting _calculate_risk_with_clinical")
         risk_score = 0.0
         
         # Clinical factors (most important)
@@ -331,6 +355,8 @@ class DiabetesPredictionService:
         else:
             hba1c = 5.7
             
+        logger.info(f"🔍 DEBUG: HbA1c value: {hba1c}")
+            
         if 'blood_glucose_level' in features:
             if isinstance(features['blood_glucose_level'], (int, float)) and features['blood_glucose_level'] > -10:
                 glucose = features['blood_glucose_level'] + 100 if features['blood_glucose_level'] < 10 else features['blood_glucose_level']
@@ -338,25 +364,39 @@ class DiabetesPredictionService:
                 glucose = features['blood_glucose_level']
         else:
             glucose = 95
+            
+        logger.info(f"🔍 DEBUG: Glucose value: {glucose}")
         
         # HbA1c scoring (most predictive)
         if hba1c >= 6.5:
             risk_score += 0.7  # Diabetes range
+            logger.info(f"🔍 DEBUG: HbA1c >= 6.5, adding 0.7 to risk")
         elif hba1c >= 5.7:
             risk_score += 0.4  # Prediabetes range
+            logger.info(f"🔍 DEBUG: HbA1c >= 5.7, adding 0.4 to risk")
         else:
             risk_score += 0.0  # Normal range
+            logger.info(f"🔍 DEBUG: HbA1c normal, adding 0.0 to risk")
             
         # Glucose scoring
         if glucose >= 126:  # Fasting glucose diabetes
             risk_score += 0.3
+            logger.info(f"🔍 DEBUG: Glucose >= 126, adding 0.3 to risk")
         elif glucose >= 100:  # Prediabetes range
             risk_score += 0.15
+            logger.info(f"🔍 DEBUG: Glucose >= 100, adding 0.15 to risk")
+            
+        logger.info(f"🔍 DEBUG: Risk score after clinical factors: {risk_score}")
             
         # Add lifestyle factors with lower weights
-        risk_score += self._calculate_lifestyle_risk(features) * 0.3
+        lifestyle_risk = self._calculate_lifestyle_risk(features) * 0.3
+        logger.info(f"🔍 DEBUG: Lifestyle risk component: {lifestyle_risk}")
+        risk_score += lifestyle_risk
         
-        return min(risk_score, 0.95)
+        final_risk = min(risk_score, 0.95)
+        logger.info(f"🔍 DEBUG: Final clinical risk (capped at 0.95): {final_risk}")
+        
+        return final_risk
     
     def _calculate_risk_lifestyle_only(self, features: Dict[str, Any]) -> float:
         """Risk calculation based only on lifestyle factors"""
@@ -364,6 +404,7 @@ class DiabetesPredictionService:
     
     def _calculate_lifestyle_risk(self, features: Dict[str, Any]) -> float:
         """Calculate risk from lifestyle and demographic factors"""
+        logger.info("🔍 DEBUG: Starting _calculate_lifestyle_risk")
         risk_score = 0.0
         
         # Age factor - handle both raw and standardized
@@ -372,12 +413,17 @@ class DiabetesPredictionService:
         else:
             age = 35
             
+        logger.info(f"🔍 DEBUG: Age value: {age}")
+            
         if age >= 65:
             risk_score += 0.3
+            logger.info(f"🔍 DEBUG: Age >= 65, adding 0.3 to risk")
         elif age >= 50:
             risk_score += 0.2
+            logger.info(f"🔍 DEBUG: Age >= 50, adding 0.2 to risk")
         elif age >= 35:
             risk_score += 0.1
+            logger.info(f"🔍 DEBUG: Age >= 35, adding 0.1 to risk")
             
         # BMI factor - handle both raw and standardized
         if 'bmi' in features:
@@ -385,24 +431,35 @@ class DiabetesPredictionService:
         else:
             bmi = 25
             
+        logger.info(f"🔍 DEBUG: BMI value: {bmi}")
+            
         if bmi >= 35:
             risk_score += 0.25
+            logger.info(f"🔍 DEBUG: BMI >= 35, adding 0.25 to risk")
         elif bmi >= 30:
             risk_score += 0.2
+            logger.info(f"🔍 DEBUG: BMI >= 30, adding 0.2 to risk")
         elif bmi >= 25:
             risk_score += 0.1
+            logger.info(f"🔍 DEBUG: BMI >= 25, adding 0.1 to risk")
             
         # Gender factor
         if features.get('gender_Male', False):
             risk_score += 0.05
+            logger.info(f"🔍 DEBUG: Male gender, adding 0.05 to risk")
             
         # Smoking history
         if features.get('smoking_history_current', False):
             risk_score += 0.1
+            logger.info(f"🔍 DEBUG: Current smoker, adding 0.1 to risk")
         elif features.get('smoking_history_former', False):
             risk_score += 0.05
-            
-        return min(risk_score, 0.8)  # Cap lifestyle-only at 80%
+            logger.info(f"🔍 DEBUG: Former smoker, adding 0.05 to risk")
+        
+        final_lifestyle_risk = min(risk_score, 0.8)  # Cap lifestyle-only at 80%
+        logger.info(f"🔍 DEBUG: Final lifestyle risk (capped at 0.8): {final_lifestyle_risk}")
+        
+        return final_lifestyle_risk
 
     def _get_low_risk_recommendations(self, has_clinical_data: bool) -> list:
         """Get recommendations for low risk patients"""
