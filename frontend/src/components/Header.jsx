@@ -8,13 +8,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu.jsx";
-import { Stethoscope, Sparkles, User, LogOut, Settings, UserCircle, ChevronDown, Menu, X } from "lucide-react";
+import { Stethoscope, Sparkles, User, LogOut, Settings, UserCircle, ChevronDown, Menu, X, Shield, BarChart3 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
 
 const Header = () => {
-  const { isAuthenticated, logout, user } = useAuth();
+  const { isAuthenticated, logout, user, isAdmin, isSuperAdmin } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const toggleMobileMenu = () => {
@@ -105,6 +105,26 @@ const Header = () => {
                       Edit Profile
                     </Link>
                   </DropdownMenuItem>
+                  
+                  {/* Admin Navigation - Only show for admin users */}
+                  {(isAdmin || isSuperAdmin) && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild>
+                        <Link to="/admin/dashboard" className="flex items-center w-full">
+                          <Shield className="h-4 w-4 mr-2" />
+                          Admin Dashboard
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/dashboard" className="flex items-center w-full">
+                          <BarChart3 className="h-4 w-4 mr-2" />
+                          User Dashboard
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 
                     onClick={logout}

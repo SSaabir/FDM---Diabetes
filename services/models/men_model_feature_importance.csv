@@ -1,0 +1,30 @@
+feature,importance
+hbA1c_level,0.38115042
+blood_glucose_level,0.22863044
+age_group_Senior,0.12685025
+age,0.069094636
+smoking_history_No Info,0.03630342
+bmi,0.025988216
+age_diabetes_risk,0.017464494
+year_2019,0.00876529
+bmi_category_Normal,0.008248099
+age_group_Adult,0.008197702
+smoking_history_former,0.008178186
+alcohol_intake_none,0.0076800087
+smoking_history_ever,0.007483124
+bmi_risk_level,0.007027099
+smoking_history_not current,0.0068031102
+age_group_Middle-aged,0.006775962
+bmi_category_Overweight,0.006663201
+location_Delaware,0.006519641
+region_income_high,0.0064513246
+location_Kansas,0.006017874
+age_group_Child,0.005875856
+smoking_history_current,0.0056304806
+smoking_history_never,0.005529438
+location_Kentucky,0.0026716664
+bmi_category_Obese,0.0
+gender_Male,0.0
+year_2022,0.0
+gender_Female,0.0
+bmi_category_Underweight,0.0

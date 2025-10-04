@@ -12,50 +12,49 @@ logger = logging.getLogger(__name__)
 class DiabetesPredictionService:
     def __init__(self):
         self.models_path = Path(__file__).parent.parent.parent / "models"
-        self.general_model = None
         self.women_model = None
-        self.scaler = None
-        self.feature_columns = None
+        self.men_model = None
+        self.women_features = None
+        self.men_features = None
         
         self.load_models()
 
     def load_models(self):
-        """Load both general and women-specific models"""
+        """Load gender-specific models with gestational features for women only"""
         try:
-            # Load the general model
-            general_model_path = self.models_path / "diabetes_rf_tuned.pkl"
-            if general_model_path.exists():
-                self.general_model = joblib.load(general_model_path)
-                logger.info(f"✅ General model loaded: {general_model_path}")
-            
-            # Try to load the women-specific model 
-            women_model_path = self.models_path / "diabetes_model.pkl"
+            # Load the women-specific model (includes gestational features)
+            women_model_path = self.models_path / "diabetes_women_model.pkl"
             if women_model_path.exists():
                 self.women_model = joblib.load(women_model_path)
-                logger.info(f"✅ Women model loaded: {women_model_path}")
+                logger.info(f"✅ Women's model loaded: {women_model_path}")
+                
+                # Load women's feature schema
+                women_features_path = self.models_path / "women_model_features.json"
+                if women_features_path.exists():
+                    with open(women_features_path, 'r') as f:
+                        self.women_features = json.load(f)
+                    logger.info(f"✅ Women's features loaded: {len(self.women_features)} features (includes gestational)")
             
-            # Load feature columns
-            feature_path = self.models_path / "feature_columns.json"
-            if feature_path.exists():
-                with open(feature_path, 'r') as f:
-                    feature_data = json.load(f)
-                    self.feature_columns = feature_data.get('features', [])
-                logger.info(f"✅ Feature columns loaded: {len(self.feature_columns)} features")
-            
-            # Try to load scaler if available
-            scaler_path = self.models_path / "../data/processed_enhanced/feature_scaler.pkl"
-            scaler_full_path = self.models_path.parent / "data/processed_enhanced/feature_scaler.pkl"
-            if scaler_full_path.exists():
-                self.scaler = joblib.load(scaler_full_path)
-                logger.info("✅ Feature scaler loaded")
+            # Load the men-specific model (excludes gestational features)
+            men_model_path = self.models_path / "diabetes_men_model.pkl"
+            if men_model_path.exists():
+                self.men_model = joblib.load(men_model_path)
+                logger.info(f"✅ Men's model loaded: {men_model_path}")
+                
+                # Load men's feature schema
+                men_features_path = self.models_path / "men_model_features.json"
+                if men_features_path.exists():
+                    with open(men_features_path, 'r') as f:
+                        self.men_features = json.load(f)
+                    logger.info(f"✅ Men's features loaded: {len(self.men_features)} features (no gestational)")
                 
         except Exception as e:
             logger.error(f"❌ Error loading models: {str(e)}")
-            self.general_model = None
             self.women_model = None
+            self.men_model = None
 
-    def preprocess_input(self, user_input: Dict[str, Any]) -> Tuple[Dict[str, float], bool]:
-        """Simplified preprocessing to match actual trained model features"""
+    def preprocess_input(self, user_input: Dict[str, Any], gender: str) -> Tuple[Dict[str, float], bool]:
+        """Gender-specific preprocessing to match trained model features"""
         try:
             # Extract basic inputs
             age = float(user_input.get('age', 35))
@@ -75,20 +74,19 @@ class DiabetesPredictionService:
             glucose_level = float(glucose) if glucose and glucose != '' else 95  # Default normal value
             
             # Extract categorical inputs
-            gender = user_input.get('gender', 'male').lower()
             smoking_history = user_input.get('smoking', 'never').lower()
             
             # Create basic feature set matching the actual model expectations
             features = {
-                # Core numerical features (need to be standardized to match training data)
-                'age': (age - 45) / 15,  # Simple standardization
-                'bmi': (bmi - 25) / 5,   # Simple standardization
-                'hbA1c_level': (hba1c_level - 6) / 1,  # Simple standardization
-                'blood_glucose_level': (glucose_level - 100) / 30,  # Simple standardization
+                # Core numerical features (using raw values, models handle scaling)
+                'age': age,
+                'bmi': bmi,
+                'hbA1c_level': hba1c_level,
+                'blood_glucose_level': glucose_level,
                 
                 # Gender encoding (one-hot)
-                'gender_Female': gender == 'female',
-                'gender_Male': gender == 'male',
+                'gender_Female': gender.lower() == 'female',
+                'gender_Male': gender.lower() == 'male',
                 
                 # Smoking history encoding (one-hot)
                 'smoking_history_No Info': smoking_history == 'no info',
@@ -110,10 +108,67 @@ class DiabetesPredictionService:
                 'age_group_Middle-aged': 40 <= age < 60,
                 'age_group_Senior': age >= 60,
                 
-                # Categorical risk levels (single values, not one-hot)
-                'bmi_risk_level': 'overweight' if 25 <= bmi < 30 else 'obese_1' if 30 <= bmi < 35 else 'obese_2' if bmi >= 35 else 'underweight' if bmi < 18.5 else 'normal',
-                'age_diabetes_risk': 'very_high_risk' if age >= 65 else 'high_risk' if age >= 50 else 'moderate_risk' if age >= 35 else 'low_risk'
+                # Default location/demographic features (using most common values)
+                'location_Delaware': False,
+                'location_Kansas': False,
+                'location_Kentucky': False,
+                'alcohol_intake_none': True,  # Default assumption
+                'region_income_high': True,   # Default assumption
+                'year_2019': False,
+                'year_2022': True,  # Most recent year
+                
+                # Categorical risk levels (need to be encoded for XGBoost)
+                'bmi_risk_level': 0,  # Will be set with one-hot encoding below
+                'age_diabetes_risk': 0  # Will be set with one-hot encoding below
             }
+            
+            # BMI risk level encoding (one-hot style)
+            bmi_risk_categories = ['normal', 'underweight', 'overweight', 'obese_1', 'obese_2']
+            if 25 <= bmi < 30:
+                bmi_risk = 'overweight'
+            elif 30 <= bmi < 35:
+                bmi_risk = 'obese_1'
+            elif bmi >= 35:
+                bmi_risk = 'obese_2'
+            elif bmi < 18.5:
+                bmi_risk = 'underweight'
+            else:
+                bmi_risk = 'normal'
+            
+            # Set BMI risk level as encoded value (0-4)
+            features['bmi_risk_level'] = bmi_risk_categories.index(bmi_risk)
+            
+            # Age diabetes risk encoding (one-hot style)
+            age_risk_categories = ['low_risk', 'moderate_risk', 'high_risk', 'very_high_risk']
+            if age >= 65:
+                age_risk = 'very_high_risk'
+            elif age >= 50:
+                age_risk = 'high_risk'
+            elif age >= 35:
+                age_risk = 'moderate_risk'
+            else:
+                age_risk = 'low_risk'
+                
+            # Set age diabetes risk as encoded value (0-3)
+            features['age_diabetes_risk'] = age_risk_categories.index(age_risk)
+            
+            # Add gestational history for women only
+            if gender.lower() == 'female':
+                gestational_history = user_input.get('gestationalHistory', 'no')
+                if gestational_history.lower() in ['yes', 'true', '1']:
+                    features.update({
+                        'gestational_history_0.0': False,
+                        'gestational_history_1.0': True,
+                        'gestational_history_No': False,
+                        'gestational_history_Not Applicable': False
+                    })
+                else:
+                    features.update({
+                        'gestational_history_0.0': True,
+                        'gestational_history_1.0': False,
+                        'gestational_history_No': False,
+                        'gestational_history_Not Applicable': False
+                    })
             
             return features, has_clinical_data
             
@@ -122,52 +177,65 @@ class DiabetesPredictionService:
             raise ValueError(f"Invalid input data: {str(e)}")
 
     def predict_diabetes_risk(self, user_input: Dict[str, Any]) -> Dict[str, Any]:
-        """Enhanced prediction using clinical data when available"""
+        """Gender-specific prediction using XGBoost models with gestational features for women"""
         try:
-            # Preprocess input and check for clinical data
-            features, has_clinical_data = self.preprocess_input(user_input)
-            
-            # Select appropriate model and determine confidence
+            # Extract gender first
             gender = user_input.get('gender', 'male').lower()
             
-            if has_clinical_data and (self.general_model is not None or self.women_model is not None):
-                # Use ML model when clinical data is available
-                model_to_use = self.women_model if gender == 'female' and self.women_model else self.general_model
-                
-                if model_to_use is not None:
-                    try:
-                        # Create feature DataFrame in correct order
-                        if self.feature_columns:
-                            feature_df = pd.DataFrame([features])
-                            # Ensure all required features are present
-                            for col in self.feature_columns:
-                                if col not in feature_df.columns:
-                                    feature_df[col] = 0
-                            # Reorder columns to match training
-                            feature_df = feature_df[self.feature_columns]
-                        else:
-                            feature_df = pd.DataFrame([features])
-                        
-                        # Make prediction
-                        risk_probability = model_to_use.predict_proba(feature_df)[0][1]
-                        model_used = f"{'Women-Specific' if gender == 'female' and self.women_model else 'General'} ML Model (Clinical + Lifestyle)"
-                        confidence = "high"
-                    except Exception as e:
-                        logger.warning(f"ML model prediction failed: {str(e)}, falling back to calculator")
-                        # Fallback to risk calculator if model fails
-                        risk_probability = self._calculate_risk_with_clinical(features)
-                        model_used = "Enhanced Risk Calculator (Clinical + Lifestyle)"
-                        confidence = "high"
-                else:
-                    # Fallback to risk calculator
-                    risk_probability = self._calculate_risk_with_clinical(features)
-                    model_used = "Enhanced Risk Calculator (Clinical + Lifestyle)"
-                    confidence = "high"
+            # Preprocess input with gender-specific features
+            features, has_clinical_data = self.preprocess_input(user_input, gender)
+            
+            # Select appropriate gender-specific model
+            if gender == 'female' and self.women_model is not None:
+                model_to_use = self.women_model
+                feature_schema = self.women_features
+                model_name = "Women-Specific XGBoost"
+            elif gender == 'male' and self.men_model is not None:
+                model_to_use = self.men_model
+                feature_schema = self.men_features
+                model_name = "Men-Specific XGBoost"
             else:
-                # Use lifestyle-only prediction
-                risk_probability = self._calculate_risk_lifestyle_only(features)
-                model_used = "Lifestyle Risk Calculator (No Clinical Data)"
+                # Fallback if models not available
+                risk_probability = self._calculate_risk_with_clinical(features) if has_clinical_data else self._calculate_risk_lifestyle_only(features)
+                model_used = f"Risk Calculator ({'Clinical + Lifestyle' if has_clinical_data else 'Lifestyle Only'})"
                 confidence = "moderate"
+                
+            # Use ML model if available
+            if 'model_to_use' in locals():
+                try:
+                    # Create feature DataFrame with correct schema
+                    feature_df = pd.DataFrame([features])
+                    
+                    # Ensure all required features are present with defaults
+                    for col in feature_schema:
+                        if col not in feature_df.columns:
+                            # Set appropriate defaults for missing features
+                            if 'gestational' in col.lower():
+                                feature_df[col] = False  # Default gestational features to False
+                            elif col in ['gender_Female', 'gender_Male']:
+                                feature_df[col] = (col == f'gender_{gender.title()}')
+                            else:
+                                feature_df[col] = 0  # Default numeric/categorical features
+                    
+                    # Reorder columns to match training schema
+                    feature_df = feature_df[feature_schema]
+                    
+                    # XGBoost models were trained on raw features (no scaling needed)
+                    # The scaler in processed_enhanced was used for other models, not XGBoost
+                    
+                    # Make prediction
+                    risk_probability = model_to_use.predict_proba(feature_df)[0][1]
+                    model_used = f"{model_name} Model (Clinical + Lifestyle)"
+                    confidence = "high"
+                    
+                    logger.info(f"✅ Prediction made using {model_name} model: {risk_probability:.4f}")
+                    
+                except Exception as e:
+                    logger.warning(f"❌ ML model prediction failed: {str(e)}, falling back to calculator")
+                    # Fallback to risk calculator if model fails
+                    risk_probability = self._calculate_risk_with_clinical(features) if has_clinical_data else self._calculate_risk_lifestyle_only(features)
+                    model_used = f"Risk Calculator ({'Clinical + Lifestyle' if has_clinical_data else 'Lifestyle Only'})"
+                    confidence = "moderate"
             
             # Convert to percentage
             risk_percentage = round(risk_probability * 100, 1)
@@ -190,7 +258,9 @@ class DiabetesPredictionService:
                 "model_used": model_used,
                 "bmi": round(features['bmi'], 2),
                 "confidence": confidence,
-                "has_clinical_data": has_clinical_data
+                "has_clinical_data": has_clinical_data,
+                "gender": gender,
+                "gestational_features_included": gender == 'female'
             }
 
         except Exception as e:

@@ -552,6 +552,15 @@ def enhanced_preprocessing(df: pd.DataFrame, outdir: str, target_col: str = None
         # Convert year to string to treat as categorical
         df_clean['year'] = df_clean['year'].astype(str)
     
+    # Special handling for gestational_history - treat as categorical (binary)
+    if 'gestational_history' in numeric_cols:
+        print("     Moving 'gestational_history' from numeric to categorical (binary treatment)")
+        numeric_cols.remove('gestational_history')
+        categorical_cols.append('gestational_history')
+        # Convert gestational_history to string to treat as categorical, but preserve NaN
+        df_clean['gestational_history'] = df_clean['gestational_history'].astype(str)
+        df_clean['gestational_history'] = df_clean['gestational_history'].replace('nan', pd.NA)
+    
     # 3. Enhanced imputation
     print("  🩹 Step 3: Enhanced imputation...")
     df_clean, imputation_info = enhanced_imputation(df_clean, numeric_cols, categorical_cols, target_col)
@@ -648,29 +657,49 @@ def enhanced_preprocessing(df: pd.DataFrame, outdir: str, target_col: str = None
         numeric_feature_cols = [col for col in X.columns if pd.api.types.is_numeric_dtype(X[col])]
         categorical_feature_cols = [col for col in X.columns if not pd.api.types.is_numeric_dtype(X[col])]
         
-        if numeric_feature_cols and len(numeric_feature_cols) > 30:
-            # Select top K numeric features
-            k = min(20, len(numeric_feature_cols))  # Select top 20 numeric or all available
-            selector = SelectKBest(score_func=f_classif, k=k)
-            X_numeric_selected = selector.fit_transform(X[numeric_feature_cols], y)
+        # Protect medically important features from being dropped
+        protected_features = [col for col in X.columns if any(term in col.lower() for term in 
+                             ['gestational', 'pregnancy', 'hba1c', 'glucose', 'bmi', 'age'])]
+        
+        protected_numeric = [col for col in protected_features if col in numeric_feature_cols]
+        selectable_numeric = [col for col in numeric_feature_cols if col not in protected_numeric]
+        
+        if selectable_numeric and len(numeric_feature_cols) > 30:
+            # Select from non-protected numeric features
+            k_selectable = max(1, min(15, len(selectable_numeric)))  # Select fewer from non-protected
             
-            # Get selected feature names
-            selected_numeric_features = pd.Series(numeric_feature_cols)[selector.get_support()].tolist()
+            selector = SelectKBest(score_func=f_classif, k=k_selectable)
+            X_selectable_selected = selector.fit_transform(X[selectable_numeric], y)
             
-            # Combine selected numeric features with all categorical features and target
-            selected_features = selected_numeric_features + categorical_feature_cols + [target_col]
+            # Get selected feature names from selectable features
+            selected_selectable_features = pd.Series(selectable_numeric)[selector.get_support()].tolist()
+            
+            # Combine protected features + selected features + all categorical features + target
+            selected_features = protected_numeric + selected_selectable_features + categorical_feature_cols + [target_col]
             
             df_ml = df_ml[selected_features]
             
             # Save feature selection info
             feature_scores = pd.DataFrame({
-                'feature': numeric_feature_cols,
+                'feature': selectable_numeric,
                 'score': selector.scores_,
-                'selected': selector.get_support()
-            }).sort_values('score', ascending=False)
+                'selected': selector.get_support(),
+                'protected': False
+            })
             
+            # Add protected features info
+            protected_df = pd.DataFrame({
+                'feature': protected_numeric,
+                'score': 999,  # High score to indicate protection
+                'selected': True,
+                'protected': True
+            })
+            
+            feature_scores = pd.concat([protected_df, feature_scores]).sort_values('score', ascending=False)
             feature_scores.to_csv(os.path.join(outdir, "feature_selection_report.csv"), index=False)
-            print(f"     Selected {k} numeric features out of {len(numeric_feature_cols)} (kept all {len(categorical_feature_cols)} categorical features)")
+            
+            print(f"     Protected {len(protected_numeric)} medical features, selected {k_selectable} from {len(selectable_numeric)} others")
+            print(f"     Kept all {len(categorical_feature_cols)} categorical features")
         else:
             print("     Skipping feature selection - not enough numeric features or features already manageable")
     

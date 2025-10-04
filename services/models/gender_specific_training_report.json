@@ -1,0 +1,24 @@
+{
+  "training_approach": "gender_specific_models",
+  "training_date": "2025-10-05T03:19:49.795662",
+  "dataset_info": {
+    "total_samples": 100000,
+    "total_features": 33
+  },
+  "women_model": {
+    "model_type": "XGBClassifier",
+    "roc_auc": 0.978465730650736,
+    "model_path": "../models\\diabetes_women_model.pkl",
+    "training_samples": 46841,
+    "features_count": 33,
+    "includes_gestational_history": true
+  },
+  "men_model": {
+    "model_type": "XGBClassifier",
+    "roc_auc": 0.9751584846904053,
+    "model_path": "../models\\diabetes_men_model.pkl",
+    "training_samples": 33144,
+    "features_count": 29,
+    "includes_gestational_history": false
+  }
+}
