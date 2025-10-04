@@ -345,23 +345,16 @@ class DiabetesPredictionService:
         risk_score = 0.0
         
         # Clinical factors (most important)
-        # Convert back from standardized values or use raw if available
+        # Use raw values directly - no conversion needed
         if 'hbA1c_level' in features:
-            if isinstance(features['hbA1c_level'], (int, float)) and features['hbA1c_level'] > -10:
-                # If standardized, convert back (rough approximation)
-                hba1c = features['hbA1c_level'] + 6 if features['hbA1c_level'] < 10 else features['hbA1c_level']
-            else:
-                hba1c = features['hbA1c_level']
+            hba1c = features['hbA1c_level']
         else:
             hba1c = 5.7
             
         logger.info(f"🔍 DEBUG: HbA1c value: {hba1c}")
             
         if 'blood_glucose_level' in features:
-            if isinstance(features['blood_glucose_level'], (int, float)) and features['blood_glucose_level'] > -10:
-                glucose = features['blood_glucose_level'] + 100 if features['blood_glucose_level'] < 10 else features['blood_glucose_level']
-            else:
-                glucose = features['blood_glucose_level']
+            glucose = features['blood_glucose_level']
         else:
             glucose = 95
             
@@ -407,9 +400,9 @@ class DiabetesPredictionService:
         logger.info("🔍 DEBUG: Starting _calculate_lifestyle_risk")
         risk_score = 0.0
         
-        # Age factor - handle both raw and standardized
+        # Age factor - use raw values directly
         if 'age' in features:
-            age = features['age'] + 45 if features['age'] < 10 else features['age']
+            age = features['age']
         else:
             age = 35
             
@@ -425,9 +418,9 @@ class DiabetesPredictionService:
             risk_score += 0.1
             logger.info(f"🔍 DEBUG: Age >= 35, adding 0.1 to risk")
             
-        # BMI factor - handle both raw and standardized
+        # BMI factor - use calculated BMI directly
         if 'bmi' in features:
-            bmi = features['bmi'] + 25 if features['bmi'] < 10 else features['bmi']
+            bmi = features['bmi']
         else:
             bmi = 25
             
