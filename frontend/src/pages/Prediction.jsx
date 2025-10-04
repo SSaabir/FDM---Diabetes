@@ -209,21 +209,25 @@ const Prediction = () => {
     setLastRequestTime(now);
     
     try {
+      // Debug: Check raw form data first
+      console.log('🔍 DEBUG: Raw form data before processing:', formData);
+      console.log('🔍 DEBUG: Raw form data types:', Object.keys(formData).map(key => `${key}: ${typeof formData[key]} = ${formData[key]}`));
+      
       // Convert form data to API format with proper data types for backend compatibility
       const apiData = {
         age: parseInt(formData.age),
-        gender: String(formData.gender),
+        gender: String(formData.gender || ''),
         height: parseFloat(formData.height),
         weight: parseFloat(formData.weight),
-        familyHistory: String(formData.familyHistory),
-        physicalActivity: String(formData.physicalActivity),
-        smoking: String(formData.smoking),
-        hypertension: String(formData.hypertension),
-        heartDisease: String(formData.heartDisease),
+        familyHistory: String(formData.familyHistory || ''),
+        physicalActivity: String(formData.physicalActivity || ''),
+        smoking: String(formData.smoking || ''),
+        hypertension: String(formData.hypertension || ''),
+        heartDisease: String(formData.heartDisease || ''),
         sleepHours: parseInt(formData.sleepHours),
-        dietPattern: String(formData.dietPattern),
-        alcoholIntake: String(formData.alcoholIntake),
-        medicationUse: String(formData.medicationUse),
+        dietPattern: String(formData.dietPattern || ''),
+        alcoholIntake: String(formData.alcoholIntake || ''),
+        medicationUse: String(formData.medicationUse || ''),
         gestationalHistory: formData.gender === 'female' ? (formData.gestationalHistory ? 'yes' : 'no') : 'no',
         hbA1c: formData.hbA1c ? parseFloat(formData.hbA1c) : null,
         bloodGlucose: formData.bloodGlucose ? parseFloat(formData.bloodGlucose) : null
@@ -232,7 +236,20 @@ const Prediction = () => {
       console.log('🔍 DEBUG: Sending API data:', apiData);
       console.log('🔍 DEBUG: gestationalHistory type and value:', typeof apiData.gestationalHistory, apiData.gestationalHistory);
       console.log('🔍 DEBUG: Gender:', apiData.gender);
-      console.log('🔍 DEBUG: All field types:', Object.keys(apiData).map(key => `${key}: ${typeof apiData[key]}`));
+      console.log('🔍 DEBUG: All field types:', Object.keys(apiData).map(key => `${key}: ${typeof apiData[key]} = ${apiData[key]}`));
+      
+      // Safety check: Ensure no boolean values are being sent
+      const problematicFields = Object.keys(apiData).filter(key => 
+        typeof apiData[key] === 'boolean' && key !== 'gestationalHistory'
+      );
+      if (problematicFields.length > 0) {
+        console.error('🚨 WARNING: Boolean fields detected:', problematicFields);
+        // Convert any remaining booleans to strings
+        problematicFields.forEach(field => {
+          console.log(`🔧 Converting ${field} from ${apiData[field]} to "${String(apiData[field])}"`);
+          apiData[field] = String(apiData[field]);
+        });
+      }
 
       // Call the prediction API with enhanced error handling
       const response = await predictionAPI.predict(apiData);
