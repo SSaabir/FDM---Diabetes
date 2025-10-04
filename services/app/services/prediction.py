@@ -56,6 +56,11 @@ class DiabetesPredictionService:
     def preprocess_input(self, user_input: Dict[str, Any], gender: str) -> Tuple[Dict[str, float], bool]:
         """Gender-specific preprocessing to match trained model features"""
         try:
+            # 🔍 DEBUG: Log all input data and types
+            logger.info("🔍 DEBUG: Starting preprocess_input with data:")
+            for key, value in user_input.items():
+                logger.info(f"   {key}: {type(value).__name__} = {value}")
+            
             # Extract basic inputs
             age = float(user_input.get('age', 35))
             height = float(user_input.get('height', 170))
@@ -73,8 +78,22 @@ class DiabetesPredictionService:
             hba1c_level = float(hba1c) if hba1c and hba1c != '' else 5.7  # Default normal value
             glucose_level = float(glucose) if glucose and glucose != '' else 95  # Default normal value
             
-            # Extract categorical inputs
-            smoking_history = user_input.get('smoking', 'never').lower()
+            # Extract categorical inputs - SAFE VERSION
+            smoking_raw = user_input.get('smoking', 'never')
+            logger.info(f"🔍 DEBUG: smoking_raw type and value: {type(smoking_raw)} = {smoking_raw}")
+            
+            # Safe conversion to string before calling .lower()
+            if isinstance(smoking_raw, bool):
+                logger.error(f"🚨 BACKEND: smoking is boolean! Converting {smoking_raw} to string")
+                smoking_history = str(smoking_raw).lower()
+            else:
+                smoking_history = str(smoking_raw).lower()
+            
+            logger.info(f"🔍 DEBUG: smoking_history after conversion: {smoking_history}")
+            
+            # Safe gender handling
+            logger.info(f"🔍 DEBUG: gender parameter: {type(gender)} = {gender}")
+            gender_safe = str(gender).lower()
             
             # Create basic feature set matching the actual model expectations
             features = {
@@ -85,8 +104,8 @@ class DiabetesPredictionService:
                 'blood_glucose_level': glucose_level,
                 
                 # Gender encoding (one-hot)
-                'gender_Female': gender.lower() == 'female',
-                'gender_Male': gender.lower() == 'male',
+                'gender_Female': gender_safe == 'female',
+                'gender_Male': gender_safe == 'male',
                 
                 # Smoking history encoding (one-hot)
                 'smoking_history_No Info': smoking_history == 'no info',
@@ -153,9 +172,20 @@ class DiabetesPredictionService:
             features['age_diabetes_risk'] = age_risk_categories.index(age_risk)
             
             # Add gestational history for women only
-            if gender.lower() == 'female':
-                gestational_history = user_input.get('gestationalHistory', 'no')
-                if gestational_history.lower() in ['yes', 'true', '1']:
+            if gender_safe == 'female':
+                gestational_history_raw = user_input.get('gestationalHistory', 'no')
+                logger.info(f"🔍 DEBUG: gestationalHistory_raw type and value: {type(gestational_history_raw)} = {gestational_history_raw}")
+                
+                # Safe conversion to string before calling .lower()
+                if isinstance(gestational_history_raw, bool):
+                    logger.error(f"🚨 BACKEND: gestationalHistory is boolean! Converting {gestational_history_raw} to string")
+                    gestational_history = str(gestational_history_raw).lower()
+                else:
+                    gestational_history = str(gestational_history_raw).lower()
+                    
+                logger.info(f"🔍 DEBUG: gestational_history after conversion: {gestational_history}")
+                
+                if gestational_history in ['yes', 'true', '1']:
                     features.update({
                         'gestational_history_0.0': False,
                         'gestational_history_1.0': True,
@@ -179,8 +209,18 @@ class DiabetesPredictionService:
     def predict_diabetes_risk(self, user_input: Dict[str, Any]) -> Dict[str, Any]:
         """Gender-specific prediction using XGBoost models with gestational features for women"""
         try:
-            # Extract gender first
-            gender = user_input.get('gender', 'male').lower()
+            # Extract gender first - SAFE VERSION
+            gender_raw = user_input.get('gender', 'male')
+            logger.info(f"🔍 DEBUG: gender_raw in predict_diabetes_risk: {type(gender_raw)} = {gender_raw}")
+            
+            # Safe conversion to string before calling .lower()
+            if isinstance(gender_raw, bool):
+                logger.error(f"🚨 BACKEND: gender is boolean! Converting {gender_raw} to string")
+                gender = str(gender_raw).lower()
+            else:
+                gender = str(gender_raw).lower()
+                
+            logger.info(f"🔍 DEBUG: gender after conversion: {gender}")
             
             # Preprocess input with gender-specific features
             features, has_clinical_data = self.preprocess_input(user_input, gender)

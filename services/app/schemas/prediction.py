@@ -16,7 +16,7 @@ class PredictionRequest(BaseModel):
     
     # Health history
     familyHistory: str = Field("no", description="Family history of diabetes (yes/no/unknown)")
-    gestationalHistory: bool = Field(False, description="History of gestational diabetes")
+    gestationalHistory: str = Field("no", description="History of gestational diabetes (yes/no)")
     hypertension: str = Field("no", description="Hypertension history (yes/no)")
     heartDisease: str = Field("no", description="Heart disease history (yes/no)")
     medicationUse: str = Field("no", description="Current medication use (yes/no)")
@@ -31,6 +31,12 @@ class PredictionRequest(BaseModel):
     # Optional clinical data - these are the key additions
     hbA1c: Optional[float] = Field(None, ge=3.0, le=15.0, description="HbA1c level in % (optional)")
     bloodGlucose: Optional[float] = Field(None, ge=50, le=500, description="Blood glucose level in mg/dL (optional)")
+
+    @validator('gestationalHistory')
+    def validate_gestational_history(cls, v):
+        if v.lower() not in ['yes', 'no']:
+            raise ValueError('Gestational history must be "yes" or "no"')
+        return v.lower()
 
     @validator('age')
     def validate_age(cls, v):
@@ -70,7 +76,7 @@ class PredictionRequest(BaseModel):
                 "height": 175,
                 "weight": 80,
                 "familyHistory": "no",
-                "gestationalHistory": False,
+                "gestationalHistory": "no",
                 "hypertension": "no", 
                 "heartDisease": "no",
                 "medicationUse": "no",

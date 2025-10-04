@@ -69,6 +69,18 @@ async def predict_diabetes_risk_public(request: PredictionRequest):
         # Convert request to dict
         user_input = request.dict()
         
+        # 🔍 DEBUG: Log received data types and values
+        logger.info("🔍 DEBUG: Received user_input data:")
+        for key, value in user_input.items():
+            logger.info(f"   {key}: {type(value).__name__} = {value}")
+        
+        # 🔍 DEBUG: Check for boolean values specifically
+        boolean_fields = [k for k, v in user_input.items() if isinstance(v, bool)]
+        if boolean_fields:
+            logger.error(f"🚨 BACKEND: Boolean fields detected in input: {boolean_fields}")
+            for field in boolean_fields:
+                logger.error(f"   - {field}: {type(user_input[field])} = {user_input[field]}")
+        
         # Get prediction
         result = prediction_service.predict_diabetes_risk(user_input)
         

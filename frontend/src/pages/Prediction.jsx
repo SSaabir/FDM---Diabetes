@@ -171,7 +171,7 @@ const Prediction = () => {
       dietPattern: randomData.dietPattern,
       alcoholIntake: randomData.alcoholIntake,
       medicationUse: randomData.medicationUse,
-      gestationalHistory: randomData.gestationalHistory,
+      gestationalHistory: String(randomData.gestationalHistory || 'no'),
       hbA1c: randomData.hbA1c,
       bloodGlucose: randomData.bloodGlucose
     });
@@ -213,6 +213,15 @@ const Prediction = () => {
       console.log('🔍 DEBUG: Raw form data before processing:', formData);
       console.log('🔍 DEBUG: Raw form data types:', Object.keys(formData).map(key => `${key}: ${typeof formData[key]} = ${formData[key]}`));
       
+      // Check for boolean values in raw formData
+      const booleanFormFields = Object.keys(formData).filter(key => typeof formData[key] === 'boolean');
+      if (booleanFormFields.length > 0) {
+        console.error('🚨 ALERT: Boolean values found in raw formData:', booleanFormFields);
+        booleanFormFields.forEach(field => {
+          console.log(`   - ${field}: ${typeof formData[field]} = ${formData[field]}`);
+        });
+      }
+      
       // Convert form data to API format with proper data types for backend compatibility
       const apiData = {
         age: parseInt(formData.age),
@@ -238,6 +247,18 @@ const Prediction = () => {
       console.log('🔍 DEBUG: Gender:', apiData.gender);
       console.log('🔍 DEBUG: All field types:', Object.keys(apiData).map(key => `${key}: ${typeof apiData[key]} = ${apiData[key]}`));
       
+      // Detailed field-by-field type checking
+      console.log('🔬 DETAILED TYPE CHECK:');
+      Object.keys(apiData).forEach(key => {
+        const value = apiData[key];
+        const type = typeof value;
+        if (type === 'boolean') {
+          console.error(`❌ BOOLEAN DETECTED: ${key} = ${value} (${type})`);
+        } else {
+          console.log(`✅ ${key}: ${type} = ${value}`);
+        }
+      });
+      
       // Safety check: Ensure no boolean values are being sent to backend
       const problematicFields = Object.keys(apiData).filter(key => 
         typeof apiData[key] === 'boolean'
@@ -252,6 +273,9 @@ const Prediction = () => {
         console.log('🔍 DEBUG: Fixed API data after boolean conversion:', apiData);
       }
 
+      // Final check - log the exact JSON that will be sent
+      console.log('📡 FINAL: JSON being sent to API:', JSON.stringify(apiData, null, 2));
+      
       // Call the prediction API with enhanced error handling
       const response = await predictionAPI.predict(apiData);
       console.log('🔍 DEBUG: Full API response:', response);
