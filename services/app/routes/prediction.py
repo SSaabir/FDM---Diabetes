@@ -142,6 +142,53 @@ async def health_check():
             "scaler_loaded": prediction_service.feature_scaler is not None
         }
 
+@router.get("/diagnose-files")
+async def diagnose_files():
+    """Diagnose file system for debugging deployment issues"""
+    try:
+        import os
+        from pathlib import Path
+        
+        # Get current working directory
+        cwd = os.getcwd()
+        
+        # Check prediction service paths
+        models_path = prediction_service.models_path
+        data_path = prediction_service.data_path
+        scaler_path = data_path / "feature_scaler.pkl"
+        
+        # List directory contents
+        def list_dir_contents(path):
+            try:
+                if path.exists() and path.is_dir():
+                    return [item.name for item in path.iterdir()]
+                else:
+                    return f"Path doesn't exist or not a directory: {path}"
+            except Exception as e:
+                return f"Error listing {path}: {str(e)}"
+        
+        return {
+            "cwd": cwd,
+            "models_path": str(models_path),
+            "data_path": str(data_path),
+            "scaler_path": str(scaler_path),
+            "models_exists": models_path.exists(),
+            "data_exists": data_path.exists(),
+            "scaler_exists": scaler_path.exists(),
+            "cwd_contents": list_dir_contents(Path(cwd)),
+            "models_contents": list_dir_contents(models_path),
+            "data_contents": list_dir_contents(data_path),
+            "services_dir": str(Path(__file__).parent.parent.parent),
+            "services_exists": Path(__file__).parent.parent.parent.exists(),
+            "services_contents": list_dir_contents(Path(__file__).parent.parent.parent)
+        }
+        
+    except Exception as e:
+        return {
+            "error": str(e),
+            "cwd": os.getcwd() if 'os' in locals() else "unknown"
+        }
+
 @router.post("/reload-scaler")
 async def reload_scaler():
     """Reload the feature scaler without restarting the server"""
