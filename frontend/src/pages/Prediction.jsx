@@ -46,6 +46,7 @@ const Prediction = () => {
   });
   
   const [prediction, setPrediction] = useState(null);
+  const [showFullResults, setShowFullResults] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [lastRequestTime, setLastRequestTime] = useState(0);
 
@@ -178,6 +179,7 @@ const Prediction = () => {
 
     // Clear any previous prediction
     setPrediction(null);
+    setShowFullResults(false);
 
     toast({
       title: "Random Test Data Generated! 🎲",
@@ -304,6 +306,18 @@ const Prediction = () => {
           hasClinicalData: predictionData.has_clinical_data
         });
         
+        // Reset the reveal state for new predictions
+        setShowFullResults(false);
+        
+        // For high risk, show context first, then reveal the full results after a delay
+        if (predictionData.risk_level === 'high') {
+          setTimeout(() => {
+            setShowFullResults(true);
+          }, 2000); // 2 second delay for mental preparation
+        } else {
+          setShowFullResults(true); // Show immediately for low/moderate risk
+        }
+        
         toast({
           title: "AI Prediction Complete! 🤖",
           description: `Analysis performed using ${predictionData.model_used}.`,
@@ -346,8 +360,8 @@ const Prediction = () => {
   const getRiskColor = (level) => {
     switch (level) {
       case 'low': return 'text-green-600';
-      case 'moderate': return 'text-yellow-600';
-      case 'high': return 'text-red-600';
+      case 'moderate': return 'text-amber-600';
+      case 'high': return 'text-blue-700'; // Changed from red to calming blue
       default: return 'text-muted-foreground';
     }
   };
@@ -355,9 +369,27 @@ const Prediction = () => {
   const getRiskIcon = (level) => {
     switch (level) {
       case 'low': return <CheckCircle2 className="h-5 w-5 text-green-600" />;
-      case 'moderate': return <AlertTriangle className="h-5 w-5 text-yellow-600" />;
-      case 'high': return <AlertTriangle className="h-5 w-5 text-red-600" />;
+      case 'moderate': return <AlertTriangle className="h-5 w-5 text-amber-600" />;
+      case 'high': return <Heart className="h-5 w-5 text-blue-700" />; // Changed from alert triangle to heart
       default: return <BarChart3 className="h-5 w-5" />;
+    }
+  };
+
+  const getRiskBadgeVariant = (level) => {
+    switch (level) {
+      case 'low': return 'default';
+      case 'moderate': return 'secondary';
+      case 'high': return 'outline'; // Changed from destructive to outline
+      default: return 'secondary';
+    }
+  };
+
+  const getRiskHeaderColor = (level) => {
+    switch (level) {
+      case 'low': return 'bg-green-50 border-green-200';
+      case 'moderate': return 'bg-amber-50 border-amber-200';
+      case 'high': return 'bg-blue-50 border-blue-200'; // Changed from red to calming blue
+      default: return 'bg-gray-50 border-gray-200';
     }
   };
 
@@ -717,17 +749,15 @@ const Prediction = () => {
           <div className="space-y-6">
             {prediction ? (
               <Card className="medical-card">
-                <CardHeader className={`${prediction.level === 'low' ? 'bg-green-50 border-green-200' : 
-                  prediction.level === 'moderate' ? 'bg-yellow-50 border-yellow-200' : 
-                  'bg-red-50 border-red-200'} rounded-t-lg border-b`}>
+                <CardHeader className={`${getRiskHeaderColor(prediction.level)} rounded-t-lg border-b`}>
                   <div className="flex items-center space-x-3">
                     {getRiskIcon(prediction.level)}
                     <div>
                       <CardTitle className={`${getRiskColor(prediction.level)} text-lg`}>
-                        Risk Assessment Results
+                        Your Health Assessment Results
                       </CardTitle>
                       <CardDescription>
-                        Based on your provided information
+                        Knowledge is power - here's your personalized health insights
                       </CardDescription>
                     </div>
                   </div>
@@ -735,75 +765,233 @@ const Prediction = () => {
                 
                 <CardContent className="p-6">
                   <div className="space-y-6">
-                    {/* Risk Score */}
-                    <div className="text-center">
-                      <div className="mb-4">
-                        <div className={`text-4xl font-bold ${getRiskColor(prediction.level)} bounce-in`}>
-                          {prediction.risk}%
+                    {/* Supportive Context First */}
+                    {prediction.level === 'high' && (
+                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-start space-x-3">
+                          <Heart className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                          <div className="space-y-2">
+                            <h4 className="font-semibold text-blue-800">You're Taking Control of Your Health 💪</h4>
+                            <p className="text-sm text-blue-700">
+                              Getting this assessment is already a positive step toward better health. Remember, diabetes risk can be significantly reduced with the right actions. Many people with high risk never develop diabetes by making positive lifestyle changes.
+                            </p>
+                          </div>
                         </div>
-                        <Badge variant={prediction.level === 'low' ? 'default' : 'destructive'} className="mt-2">
-                          {prediction.level.toUpperCase()} RISK
-                        </Badge>
                       </div>
-                      
-                      <div className="space-y-2">
-                        <Progress 
-                          value={prediction.risk} 
-                          className="h-3 slide-in"
-                        />
-                        <p className="text-sm text-muted-foreground">
-                          Diabetes risk probability
-                        </p>
-                      </div>
-                    </div>
+                    )}
 
-                    {/* Risk Explanation */}
-                    <div className="p-4 bg-muted/30 rounded-lg">
-                      <h4 className="font-semibold mb-2 flex items-center space-x-2">
-                        <Shield className="h-4 w-4" />
-                        <span>What This Means</span>
-                      </h4>
-                      <p className="text-sm text-muted-foreground mb-2">
-                        {prediction.level === 'low' 
-                          ? "Great news! Your current lifestyle and health indicators suggest a low risk for developing diabetes. Keep up the healthy habits! 💚"
-                          : prediction.level === 'moderate'
-                          ? "Your risk level is moderate. With some lifestyle changes, you can significantly reduce your diabetes risk. Focus on the recommendations below. 👍"
-                          : "Your risk level is high. It's important to take immediate action and consult with healthcare professionals. Early intervention can make a significant difference. 📋"
-                        }
-                      </p>
-                      {prediction.modelUsed && (
-                        <p className="text-xs text-muted-foreground">
-                          🔬 Analysis performed using: <span className="font-medium">{prediction.modelUsed}</span>
-                          {prediction.confidence && ` (${prediction.confidence} confidence)`}
-                          {prediction.hasClinicalData && (
-                            <span className="ml-2 text-green-600 font-medium">✓ Enhanced with lab data</span>
+                    {/* Progressive Reveal for High Risk */}
+                    {prediction.level === 'high' && !showFullResults && (
+                      <div className="text-center space-y-4">
+                        <div className="space-y-3">
+                          <p className="text-lg font-medium text-blue-700">
+                            Preparing your personalized health insights...
+                          </p>
+                          <div className="flex justify-center">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            Analyzing your risk factors and preparing supportive recommendations
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Risk Score with Context - Only show when ready */}
+                    {(prediction.level !== 'high' || showFullResults) && (
+                      <div className="text-center">
+                        <div className="mb-4">
+                          {prediction.level === 'high' ? (
+                            <div className="space-y-3">
+                              <p className="text-sm text-muted-foreground font-medium">
+                                Based on current factors, your estimated risk level is:
+                              </p>
+                              <div className={`text-4xl font-bold ${getRiskColor(prediction.level)} bounce-in`}>
+                                {prediction.risk}%
+                              </div>
+                              <Badge variant={getRiskBadgeVariant(prediction.level)} className="mt-2 px-4 py-1">
+                                ELEVATED ATTENTION NEEDED
+                              </Badge>
+                              <p className="text-sm text-blue-700 font-medium mt-2">
+                                ✨ The good news: This is preventable with action!
+                              </p>
+                            </div>
+                          ) : (
+                            <div>
+                              <div className={`text-4xl font-bold ${getRiskColor(prediction.level)} bounce-in`}>
+                                {prediction.risk}%
+                              </div>
+                              <Badge variant={getRiskBadgeVariant(prediction.level)} className="mt-2">
+                                {prediction.level.toUpperCase()} RISK
+                              </Badge>
+                            </div>
                           )}
-                        </p>
-                      )}
-                    </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Progress 
+                            value={prediction.risk} 
+                            className="h-3 slide-in"
+                          />
+                          <p className="text-sm text-muted-foreground">
+                            Current risk probability based on provided factors
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
-                    {/* Recommendations */}
-                    <div>
-                      <h4 className="font-semibold mb-3 flex items-center space-x-2">
-                        <Heart className="h-4 w-4 text-accent" />
-                        <span>Personalized Recommendations</span>
-                      </h4>
-                      <ul className="space-y-2">
-                        {prediction.recommendations.map((rec, index) => (
-                          <li key={index} className="flex items-start space-x-2 text-sm slide-in" style={{ animationDelay: `${index * 0.1}s` }}>
-                            <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                            <span>{rec}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+                    {/* Show remaining content only when ready */}
+                    {(prediction.level !== 'high' || showFullResults) && (
+                      <>
+                        {/* Risk Explanation */}
+                        <div className="p-4 bg-muted/30 rounded-lg">
+                          <h4 className="font-semibold mb-2 flex items-center space-x-2">
+                            <Shield className="h-4 w-4" />
+                            <span>Understanding Your Results</span>
+                          </h4>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            {prediction.level === 'low' 
+                              ? "Excellent! Your current lifestyle and health indicators suggest a low risk for developing diabetes. Keep up the healthy habits! 💚"
+                              : prediction.level === 'moderate'
+                              ? "Your risk level is moderate, which means you have a great opportunity to prevent diabetes with some positive changes. Focus on the recommendations below. 👍"
+                              : "While your risk factors suggest elevated attention is needed, the most important thing to know is that diabetes is largely preventable. Studies show that people at high risk can reduce their chances by 50-70% through lifestyle changes. You have the power to change this outcome! 🌟"
+                            }
+                          </p>
+                          {prediction.modelUsed && (
+                            <p className="text-xs text-muted-foreground">
+                              🔬 Analysis performed using: <span className="font-medium">{prediction.modelUsed}</span>
+                              {prediction.confidence && ` (${prediction.confidence} confidence)`}
+                              {prediction.hasClinicalData && (
+                                <span className="ml-2 text-green-600 font-medium">✓ Enhanced with lab data</span>
+                              )}
+                            </p>
+                          )}
+                        </div>
 
-                    <div className="pt-4 border-t">
-                      <p className="text-xs text-muted-foreground text-center">
-                        ⚠️ This is a risk assessment tool and not a medical diagnosis. 
-                        Always consult with healthcare professionals for medical advice.
-                      </p>
-                    </div>
+                        {/* Success Stories for High Risk */}
+                        {prediction.level === 'high' && (
+                          <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                            <h4 className="font-semibold mb-3 flex items-center space-x-2 text-green-800">
+                              <CheckCircle2 className="h-4 w-4" />
+                              <span>Real Success Stories 🌟</span>
+                            </h4>
+                            <div className="space-y-3 text-sm text-green-700">
+                              <div className="flex items-start space-x-2">
+                                <span className="text-green-600 font-bold">•</span>
+                                <p><strong>Sarah, 45:</strong> "I had an 85% risk score. After 6 months of walking daily and eating better, my doctor said my risk dropped to 30%!"</p>
+                              </div>
+                              <div className="flex items-start space-x-2">
+                                <span className="text-green-600 font-bold">•</span>
+                                <p><strong>Research shows:</strong> People at high risk can reduce their diabetes chances by 50-70% with lifestyle changes.</p>
+                              </div>
+                              <div className="flex items-start space-x-2">
+                                <span className="text-green-600 font-bold">•</span>
+                                <p><strong>The Diabetes Prevention Program:</strong> Proven that lifestyle changes are more effective than medication alone.</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Immediate Action Steps for High Risk */}
+                        {prediction.level === 'high' && (
+                          <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                            <h4 className="font-semibold mb-3 flex items-center space-x-2 text-amber-800">
+                              <TrendingUp className="h-4 w-4" />
+                              <span>Your Next Steps (Start Today!) 🚀</span>
+                            </h4>
+                            <div className="space-y-2">
+                              <div className="flex items-center space-x-3 text-sm">
+                                <div className="w-6 h-6 bg-amber-200 text-amber-800 rounded-full flex items-center justify-center font-bold text-xs">1</div>
+                                <span><strong>Today:</strong> Schedule an appointment with your healthcare provider</span>
+                              </div>
+                              <div className="flex items-center space-x-3 text-sm">
+                                <div className="w-6 h-6 bg-amber-200 text-amber-800 rounded-full flex items-center justify-center font-bold text-xs">2</div>
+                                <span><strong>This week:</strong> Start with a 10-minute daily walk after meals</span>
+                              </div>
+                              <div className="flex items-center space-x-3 text-sm">
+                                <div className="w-6 h-6 bg-amber-200 text-amber-800 rounded-full flex items-center justify-center font-bold text-xs">3</div>
+                                <span><strong>Right now:</strong> Download a food tracking app or start a simple food diary</span>
+                              </div>
+                            </div>
+                            <div className="mt-3 p-2 bg-white rounded border-l-4 border-amber-400">
+                              <p className="text-xs text-amber-700">
+                                💡 <strong>Remember:</strong> Small, consistent changes create big results. You don't need to change everything at once!
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Recommendations */}
+                        <div>
+                          <h4 className="font-semibold mb-3 flex items-center space-x-2">
+                            <Heart className="h-4 w-4 text-accent" />
+                            <span>
+                              {prediction.level === 'high' ? 'Your Personalized Prevention Plan' : 'Personalized Recommendations'}
+                            </span>
+                          </h4>
+                          <ul className="space-y-2">
+                            {prediction.recommendations.map((rec, index) => (
+                              <li key={index} className="flex items-start space-x-2 text-sm slide-in" style={{ animationDelay: `${index * 0.1}s` }}>
+                                <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                                <span>{rec}</span>
+                              </li>
+                            ))}
+                          </ul>
+                          
+                          {prediction.level === 'high' && (
+                            <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                              <p className="text-sm text-blue-700 font-medium">
+                                🎯 <strong>Focus Areas:</strong> Even small improvements in diet and exercise can significantly reduce your risk within months!
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Support and Resources for High Risk */}
+                        {prediction.level === 'high' && (
+                          <div className="space-y-4">
+                            <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                              <h4 className="font-semibold mb-2 flex items-center space-x-2 text-purple-800">
+                                <MessageCircle className="h-4 w-4" />
+                                <span>Need Support? We're Here to Help 🤝</span>
+                              </h4>
+                              <div className="space-y-2 text-sm text-purple-700">
+                                <p>Remember, you're not alone in this journey. Many resources are available:</p>
+                                <ul className="space-y-1 ml-4">
+                                  <li>• Talk to our AI health assistant for 24/7 support</li>
+                                  <li>• Join online diabetes prevention communities</li>
+                                  <li>• Ask your doctor about diabetes prevention programs in your area</li>
+                                </ul>
+                              </div>
+                              <div className="mt-3 flex space-x-2">
+                                <Link to="/chat" className="inline-flex items-center space-x-1 text-xs bg-purple-200 text-purple-800 px-3 py-1 rounded-full hover:bg-purple-300 transition-colors">
+                                  <MessageCircle className="h-3 w-3" />
+                                  <span>Chat with AI Assistant</span>
+                                </Link>
+                                <Link to="/contact" className="inline-flex items-center space-x-1 text-xs bg-purple-200 text-purple-800 px-3 py-1 rounded-full hover:bg-purple-300 transition-colors">
+                                  <Heart className="h-3 w-3" />
+                                  <span>Get More Help</span>
+                                </Link>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="pt-4 border-t">
+                          <p className="text-xs text-muted-foreground text-center">
+                            {prediction.level === 'high' 
+                              ? "⚠️ This assessment provides risk insights, not a medical diagnosis. Your healthcare provider can help create a personalized prevention plan that's right for you."
+                              : "⚠️ This is a risk assessment tool and not a medical diagnosis. Always consult with healthcare professionals for medical advice."
+                            }
+                          </p>
+                          {prediction.level === 'high' && (
+                            <p className="text-xs text-blue-600 text-center mt-2 font-medium">
+                              💙 Remember: High risk today doesn't mean diabetes tomorrow. You have the power to change your health story!
+                            </p>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
                 </CardContent>
               </Card>
