@@ -12,12 +12,15 @@ logger = logging.getLogger(__name__)
 class DiabetesPredictionService:
     def __init__(self):
         self.models_path = Path(__file__).parent.parent.parent / "models"
+        self.data_path = Path(__file__).parent.parent.parent / "data" / "processed_enhanced"
         self.women_model = None
         self.men_model = None
         self.women_features = None
         self.men_features = None
+        self.feature_scaler = None
         
         self.load_models()
+        self.load_scaler()
 
     def load_models(self):
         """Load gender-specific models with gestational features for women only"""
@@ -52,6 +55,21 @@ class DiabetesPredictionService:
             logger.error(f"❌ Error loading models: {str(e)}")
             self.women_model = None
             self.men_model = None
+
+    def load_scaler(self):
+        """Load the feature scaler for numeric features"""
+        try:
+            scaler_path = self.data_path / "feature_scaler.pkl"
+            if scaler_path.exists():
+                self.feature_scaler = joblib.load(scaler_path)
+                logger.info(f"✅ Feature scaler loaded: {scaler_path}")
+                logger.info(f"✅ Scaler features: {list(self.feature_scaler.feature_names_in_)}")
+            else:
+                logger.warning(f"⚠️ Feature scaler not found at: {scaler_path}")
+                self.feature_scaler = None
+        except Exception as e:
+            logger.error(f"❌ Error loading feature scaler: {str(e)}")
+            self.feature_scaler = None
 
     def preprocess_input(self, user_input: Dict[str, Any], gender: str) -> Tuple[Dict[str, float], bool]:
         """Gender-specific preprocessing to match trained model features"""
@@ -267,8 +285,22 @@ class DiabetesPredictionService:
                     # Reorder columns to match training schema
                     feature_df = feature_df[feature_schema]
                     
-                    # XGBoost models were trained on raw features (no scaling needed)
-                    # The scaler in processed_enhanced was used for other models, not XGBoost
+                    # Apply scaling to numeric features (as models were trained on scaled data)
+                    if self.feature_scaler is not None:
+                        numeric_features = ['age', 'bmi', 'hbA1c_level', 'blood_glucose_level']
+                        
+                        # Extract numeric features for scaling
+                        numeric_data = feature_df[numeric_features].copy()
+                        logger.info(f"🔍 DEBUG: Before scaling - {dict(numeric_data.iloc[0])}")
+                        
+                        # Apply the scaler
+                        scaled_numeric = self.feature_scaler.transform(numeric_data)
+                        
+                        # Update the feature DataFrame with scaled values
+                        feature_df[numeric_features] = scaled_numeric
+                        logger.info(f"🔍 DEBUG: After scaling - {dict(feature_df[numeric_features].iloc[0])}")
+                    else:
+                        logger.warning("⚠️ Feature scaler not available - using raw numeric values")
                     
                     # Make prediction
                     logger.info(f"🔍 DEBUG: Making prediction with feature_df shape: {feature_df.shape}")

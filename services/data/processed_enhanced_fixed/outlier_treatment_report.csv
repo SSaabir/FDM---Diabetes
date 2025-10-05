@@ -1,0 +1,16 @@
+index,outlier_count,outlier_percentage,method_applied
+age,0,0.0,none
+race:AfricanAmerican,20223,20.22,cap
+race:Asian,20015,20.02,cap
+race:Caucasian,19876,19.88,cap
+race:Hispanic,19888,19.89,cap
+race:Other,19998,20.0,cap
+hypertension,7485,7.48,cap
+heart_disease,3942,3.94,cap
+bmi,7086,7.09,cap
+hbA1c_level,1315,1.32,cap
+blood_glucose_level,2038,2.04,cap
+sleep_hours,0,0.0,none
+family_history,0,0.0,none
+medication_use,15045,15.04,cap
+environmental_risk,0,0.0,none

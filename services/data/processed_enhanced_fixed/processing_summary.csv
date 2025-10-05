@@ -1,0 +1,12 @@
+,value
+original_rows,100000
+original_columns,28
+final_rows,100000
+final_columns,34
+duplicates_removed,0
+numeric_features,4
+categorical_features_encoded,12
+new_features_created,7
+outlier_method,cap
+feature_selection_applied,Yes
+total_final_features,33

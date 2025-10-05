@@ -634,20 +634,18 @@ def enhanced_preprocessing(df: pd.DataFrame, outdir: str, target_col: str = None
     final_numeric_cols.extend(target_encoded_cols)
     
     # 9. Scaling numeric features (excluding year which is now categorical)
+    scaler = None  # Initialize scaler variable
     if final_numeric_cols:
         print(f"     Scaling {len(final_numeric_cols)} numeric features...")
         scaler = StandardScaler()
         df_ml[final_numeric_cols] = scaler.fit_transform(df_ml[final_numeric_cols])
-        
-        # Save scaler for later use
-        import joblib
-        scaler_path = os.path.join(outdir, "feature_scaler.pkl")
-        joblib.dump(scaler, scaler_path)
-        print(f"     Scaler saved to: {scaler_path}")
+        print(f"     Scaling completed for: {final_numeric_cols}")
     
     # 10. Feature selection (optional - select top K features for numeric columns only)
+    feature_selection_applied = False
     if target_col and target_col in df_ml.columns and len(df_ml.columns) > 50:
         print("  🎯 Step 9: Feature selection (too many features detected)...")
+        feature_selection_applied = True
         
         # Separate features and target
         X = df_ml.drop(columns=[target_col])
@@ -702,9 +700,31 @@ def enhanced_preprocessing(df: pd.DataFrame, outdir: str, target_col: str = None
             print(f"     Kept all {len(categorical_feature_cols)} categorical features")
         else:
             print("     Skipping feature selection - not enough numeric features or features already manageable")
+            feature_selection_applied = False
+    
+    # Save scaler after feature selection (so it only contains final numeric features)
+    if scaler is not None:
+        print("  💾 Step 10: Saving feature scaler...")
+        # Determine final numeric features that remain in the dataset
+        final_numeric_in_ml = [col for col in df_ml.columns 
+                              if col in final_numeric_cols and col != target_col]
+        
+        if final_numeric_in_ml:
+            print(f"     Saving scaler for final {len(final_numeric_in_ml)} numeric features...")
+            # Create a new scaler fitted only on the final features
+            final_scaler = StandardScaler()
+            final_scaler.fit(df_ml[final_numeric_in_ml])
+            
+            import joblib
+            scaler_path = os.path.join(outdir, "feature_scaler.pkl")
+            joblib.dump(final_scaler, scaler_path)
+            print(f"     Final scaler saved to: {scaler_path}")
+            print(f"     Scaler contains features: {final_numeric_in_ml}")
+        else:
+            print("     No numeric features remaining - scaler not saved")
     
     # 11. Save ML-ready version
-    print("  💾 Step 10: Saving ML-ready version...")
+    print("  💾 Step 11: Saving ML-ready version...")
     ml_path = os.path.join(outdir, "diabetes_enhanced_ml_ready.csv")
     df_ml.to_csv(ml_path, index=False)
     
