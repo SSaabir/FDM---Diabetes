@@ -11,11 +11,8 @@ logger = logging.getLogger(__name__)
 
 class DiabetesPredictionService:
     def __init__(self):
-        # Get the services directory (3 levels up from this file)
-        services_dir = Path(__file__).parent.parent.parent
-        self.models_path = services_dir / "models"
-        self.data_path = services_dir / "data" / "processed_enhanced"
-        
+        self.models_path = Path(__file__).parent.parent.parent / "models"
+        self.data_path = Path(__file__).parent.parent.parent / "data" / "processed_enhanced"
         self.women_model = None
         self.men_model = None
         self.women_features = None
@@ -62,34 +59,14 @@ class DiabetesPredictionService:
     def load_scaler(self):
         """Load the feature scaler for numeric features"""
         try:
-            # Try models directory first (where it's definitely deployed)
-            scaler_path = self.models_path / "feature_scaler.pkl"
-            logger.info(f"🔍 Looking for scaler at: {scaler_path}")
-            logger.info(f"🔍 Models path exists: {self.models_path.exists()}")
-            logger.info(f"🔍 Scaler file exists: {scaler_path.exists()}")
-            
+            scaler_path = self.data_path / "feature_scaler.pkl"
             if scaler_path.exists():
                 self.feature_scaler = joblib.load(scaler_path)
-                logger.info(f"✅ Feature scaler loaded from models: {scaler_path}")
+                logger.info(f"✅ Feature scaler loaded: {scaler_path}")
                 logger.info(f"✅ Scaler features: {list(self.feature_scaler.feature_names_in_)}")
-                logger.info(f"✅ Scaler means: {self.feature_scaler.mean_}")
-                logger.info(f"✅ Scaler scales: {self.feature_scaler.scale_}")
             else:
-                # Fallback to old data directory location
-                fallback_path = self.data_path / "feature_scaler.pkl"
-                logger.info(f"🔍 Trying fallback path: {fallback_path}")
-                
-                if fallback_path.exists():
-                    self.feature_scaler = joblib.load(fallback_path)
-                    logger.info(f"✅ Feature scaler loaded from data: {fallback_path}")
-                    logger.info(f"✅ Scaler features: {list(self.feature_scaler.feature_names_in_)}")
-                else:
-                    logger.warning(f"⚠️ Feature scaler not found at: {scaler_path} or {fallback_path}")
-                    logger.info(f"🔍 Listing contents of models path: {self.models_path}")
-                    if self.models_path.exists():
-                        for item in self.models_path.iterdir():
-                            logger.info(f"   - {item.name}")
-                    self.feature_scaler = None
+                logger.warning(f"⚠️ Feature scaler not found at: {scaler_path}")
+                self.feature_scaler = None
         except Exception as e:
             logger.error(f"❌ Error loading feature scaler: {str(e)}")
             self.feature_scaler = None
