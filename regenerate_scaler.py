@@ -55,10 +55,12 @@ def regenerate_scaler():
     print(f"🔧 Creating StandardScaler for {len(available_numeric)} features...")
     
     scaler = StandardScaler()
+    # Fit with DataFrame to preserve feature names
     scaler.fit(df[available_numeric])
     
     print(f"✅ Scaler fitted successfully")
     print(f"   Features: {available_numeric}")
+    print(f"   Feature names in scaler: {list(scaler.feature_names_in_)}")
     print(f"   Means: {scaler.mean_}")
     print(f"   Scales: {scaler.scale_}")
     
@@ -77,6 +79,7 @@ def regenerate_scaler():
     
     print(f"   Type: {type(loaded_scaler)}")
     print(f"   Features: {loaded_scaler.n_features_in_}")
+    print(f"   Feature names: {list(loaded_scaler.feature_names_in_)}")
     print(f"   Means: {loaded_scaler.mean_}")
     print(f"   Scales: {loaded_scaler.scale_}")
     
