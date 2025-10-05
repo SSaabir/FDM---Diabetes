@@ -57,18 +57,33 @@ class DiabetesPredictionService:
             self.men_model = None
 
     def load_scaler(self):
-        """Load the feature scaler for numeric features"""
+        """Load the feature scaler for numeric features - HARDCODED VERSION"""
         try:
-            scaler_path = self.data_path / "feature_scaler.pkl"
-            if scaler_path.exists():
-                self.feature_scaler = joblib.load(scaler_path)
-                logger.info(f"✅ Feature scaler loaded: {scaler_path}")
-                logger.info(f"✅ Scaler features: {list(self.feature_scaler.feature_names_in_)}")
-            else:
-                logger.warning(f"⚠️ Feature scaler not found at: {scaler_path}")
-                self.feature_scaler = None
+            # HARDCODED SCALER - No file dependencies!
+            logger.info("🔧 Using hardcoded scaler values")
+            
+            # Create a simple scaler object with hardcoded values
+            class HardcodedScaler:
+                def __init__(self):
+                    self.feature_names_in_ = ['age', 'bmi', 'hbA1c_level', 'blood_glucose_level']
+                    self.mean_ = [41.885856, 27.3207671, 5.527507, 138.05806]
+                    self.scale_ = [22.51672729, 6.63675023, 1.07066674, 40.70793251]
+                    self.n_features_in_ = 4
+                
+                def transform(self, X):
+                    """Transform features using hardcoded scaler values"""
+                    import numpy as np
+                    X = np.array(X)
+                    return (X - self.mean_) / self.scale_
+            
+            self.feature_scaler = HardcodedScaler()
+            logger.info(f"✅ Hardcoded scaler initialized successfully")
+            logger.info(f"✅ Scaler features: {self.feature_scaler.feature_names_in_}")
+            logger.info(f"✅ Scaler means: {self.feature_scaler.mean_}")
+            logger.info(f"✅ Scaler scales: {self.feature_scaler.scale_}")
+            
         except Exception as e:
-            logger.error(f"❌ Error loading feature scaler: {str(e)}")
+            logger.error(f"❌ Error initializing hardcoded scaler: {str(e)}")
             self.feature_scaler = None
 
     def preprocess_input(self, user_input: Dict[str, Any], gender: str) -> Tuple[Dict[str, float], bool]:
