@@ -127,6 +127,8 @@ async def health_check():
             "status": "healthy",
             "general_model_loaded": prediction_service.general_model is not None,
             "women_model_loaded": prediction_service.women_model is not None,
+            "scaler_loaded": prediction_service.feature_scaler is not None,
+            "scaler_features": list(prediction_service.feature_scaler.feature_names_in_) if prediction_service.feature_scaler else [],
             "test_prediction": result.get("risk_level", "unknown")
         }
         
@@ -136,5 +138,29 @@ async def health_check():
             "status": "unhealthy",
             "error": str(e),
             "general_model_loaded": prediction_service.general_model is not None,
-            "women_model_loaded": prediction_service.women_model is not None
+            "women_model_loaded": prediction_service.women_model is not None,
+            "scaler_loaded": prediction_service.feature_scaler is not None
+        }
+
+@router.post("/reload-scaler")
+async def reload_scaler():
+    """Reload the feature scaler without restarting the server"""
+    try:
+        logger.info("Reloading feature scaler...")
+        
+        # Reload the scaler
+        prediction_service.load_scaler()
+        
+        return {
+            "status": "success",
+            "message": "Feature scaler reloaded successfully",
+            "scaler_loaded": prediction_service.feature_scaler is not None,
+            "scaler_features": list(prediction_service.feature_scaler.feature_names_in_) if prediction_service.feature_scaler else []
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to reload scaler: {str(e)}")
+        return {
+            "status": "error",
+            "message": f"Failed to reload scaler: {str(e)}"
         }
