@@ -11,8 +11,11 @@ logger = logging.getLogger(__name__)
 
 class DiabetesPredictionService:
     def __init__(self):
-        self.models_path = Path(__file__).parent.parent.parent / "models"
-        self.data_path = Path(__file__).parent.parent.parent / "data" / "processed_enhanced"
+        # Get the services directory (3 levels up from this file)
+        services_dir = Path(__file__).parent.parent.parent
+        self.models_path = services_dir / "models"
+        self.data_path = services_dir / "data" / "processed_enhanced"
+        
         self.women_model = None
         self.men_model = None
         self.women_features = None
@@ -60,12 +63,22 @@ class DiabetesPredictionService:
         """Load the feature scaler for numeric features"""
         try:
             scaler_path = self.data_path / "feature_scaler.pkl"
+            logger.info(f"🔍 Looking for scaler at: {scaler_path}")
+            logger.info(f"🔍 Data path exists: {self.data_path.exists()}")
+            logger.info(f"🔍 Scaler file exists: {scaler_path.exists()}")
+            
             if scaler_path.exists():
                 self.feature_scaler = joblib.load(scaler_path)
                 logger.info(f"✅ Feature scaler loaded: {scaler_path}")
                 logger.info(f"✅ Scaler features: {list(self.feature_scaler.feature_names_in_)}")
+                logger.info(f"✅ Scaler means: {self.feature_scaler.mean_}")
+                logger.info(f"✅ Scaler scales: {self.feature_scaler.scale_}")
             else:
                 logger.warning(f"⚠️ Feature scaler not found at: {scaler_path}")
+                logger.info(f"🔍 Listing contents of data path: {self.data_path}")
+                if self.data_path.exists():
+                    for item in self.data_path.iterdir():
+                        logger.info(f"   - {item.name}")
                 self.feature_scaler = None
         except Exception as e:
             logger.error(f"❌ Error loading feature scaler: {str(e)}")
